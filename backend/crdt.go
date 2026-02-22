@@ -4,6 +4,13 @@
 // when there is integer space the digit is chosen with siteBias so concurrent
 // inserts at the same place get distinct, deterministic positions. Deletes
 // are tombstones. Merge is by position only; arrival order does not affect outcome.
+//
+// Multiplayer undo/redo: Undo is not local state rewind but a new distributed
+// operation. The client finds its last non-undone op, generates an inverse
+// (insert→delete at same position, delete→reinsert at same position) and
+// broadcasts it. The server treats undo as a normal insert or delete; the CRDT
+// applies it like any other remote op. History is never removed; tombstones
+// ensure convergence and late joiners reconstruct identical state.
 package collab
 
 const base = 65536

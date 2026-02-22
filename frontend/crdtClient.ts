@@ -72,12 +72,23 @@ export class CrdtClient {
       payload: { position: position.slice(), value } as InsertPayload,
       timestamp: Date.now(),
     };
+    this.state.applyToConfirmed(op);
+    this.state.recordToHistory(op, true);
     this.state.pushPending(op);
     this.network.sendOp(op);
     this.config.onStateChange?.();
   }
 
   deleteAtPosition(position: Position): void {
+    const visible = this.state.getVisibleState();
+    const elements = visible.getElements();
+    let deletedValue = "";
+    for (const el of elements) {
+      if (!el.deleted && el.position.length === position.length && el.position.every((v, j) => v === position[j])) {
+        deletedValue = el.value;
+        break;
+      }
+    }
     const opId = { site: this.config.siteId, counter: this.opCounter++ };
     const op: WireOperation = {
       type: "delete",
@@ -87,9 +98,44 @@ export class CrdtClient {
       payload: { position: position.slice() } as DeletePayload,
       timestamp: Date.now(),
     };
+    this.state.applyToConfirmed(op);
+    this.state.recordToHistory(op, true, deletedValue);
     this.state.pushPending(op);
     this.network.sendOp(op);
     this.config.onStateChange?.();
+  }
+
+  /** Undo: find last non-undone op by this site, broadcast its inverse, mark undone. */
+  undo(): boolean {
+    const entry = this.state.getLastUndoableEntry(this.config.siteId);
+    if (!entry) return false;
+    const inverse = this.buildInverseOp(entry);
+    this.state.markUndone(entry.opId);
+    this.state.pushPending(inverse);
+    this.network.sendOp(inverse);
+    this.config.onStateChange?.();
+    return true;
+  }
+
+  /** Redo: reapply the last undone op (same effect, new opId). */
+  redo(): boolean {
+    const opId = this.state.popRedo();
+    if (!opId) return false;
+    const op = this.state.getOpByOpId(opId);
+    if (!op || (op.type !== "insert" && op.type !== "delete")) return false;
+    const redoOp = this.buildRedoOp(op);
+    this.state.pushPending(redoOp);
+    this.network.sendOp(redoOp);
+    this.config.onStateChange?.();
+    return true;
+  }
+
+  canUndo(): boolean {
+    return this.state.canUndo(this.config.siteId);
+  }
+
+  canRedo(): boolean {
+    return this.state.canRedo();
   }
 
   getVisibleState(): ReturnType<EditorState["getVisibleState"]> {
@@ -104,13 +150,63 @@ export class CrdtClient {
     this.handleOp(op, false);
   }
 
+  private buildInverseOp(entry: { opId: { site: string; counter: number }; type: "insert" | "delete"; position: Position; value: string }): WireOperation {
+    const opId = { site: this.config.siteId, counter: this.opCounter++ };
+    if (entry.type === "insert") {
+      return {
+        type: "delete",
+        docId: this.config.docId,
+        siteId: this.config.siteId,
+        opId,
+        payload: { position: entry.position.slice() } as DeletePayload,
+        timestamp: Date.now(),
+        inverseOpId: entry.opId,
+      };
+    }
+    return {
+      type: "insert",
+      docId: this.config.docId,
+      siteId: this.config.siteId,
+      opId,
+      payload: { position: entry.position.slice(), value: entry.value } as InsertPayload,
+      timestamp: Date.now(),
+      inverseOpId: entry.opId,
+    };
+  }
+
+  private buildRedoOp(original: WireOperation): WireOperation {
+    const opId = { site: this.config.siteId, counter: this.opCounter++ };
+    if (original.type === "insert") {
+      const p = original.payload as InsertPayload;
+      return {
+        type: "insert",
+        docId: this.config.docId,
+        siteId: this.config.siteId,
+        opId,
+        payload: { position: (p?.position ?? []).slice(), value: p?.value ?? "" } as InsertPayload,
+        timestamp: Date.now(),
+      };
+    }
+    const p = original.payload as DeletePayload;
+    return {
+      type: "delete",
+      docId: this.config.docId,
+      siteId: this.config.siteId,
+      opId,
+      payload: { position: (p?.position ?? []).slice() } as DeletePayload,
+      timestamp: Date.now(),
+    };
+  }
+
   private handleOp(op: WireOperation, isFromSelf: boolean): void {
     if (isFromSelf) {
-      this.state.applyToConfirmed(op);
       this.state.removePendingByOpId(op.opId.site, op.opId.counter);
-    } else {
       this.state.applyToConfirmed(op);
+      this.config.onStateChange?.();
+      return;
     }
+    this.state.applyToConfirmed(op);
+    this.state.recordToHistory(op, false);
     this.config.onStateChange?.();
   }
 }
