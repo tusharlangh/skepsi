@@ -54,4 +54,53 @@ function runCursorStabilityTest(): void {
   console.log("Cursor stability test passed.");
 }
 
-runCursorStabilityTest();
+/**
+ * Selective undo test (deterministic, no server).
+ * A inserts A, B inserts B, A inserts C, A presses undo.
+ * Final text must be AB on the client that has all ops.
+ */
+function runSelectiveUndoTest(): void {
+  const siteA = "site-a";
+  const siteB = "site-b";
+  const docId = "doc1";
+  const clientA = new CrdtClient({
+    url: "ws://invalid",
+    docId,
+    siteId: siteA,
+    siteBias: 0,
+    onStateChange: () => {},
+  });
+
+  clientA.insertAt(0, "A");
+  const visible = clientA.getVisibleState();
+  const posA = visible.getPositions()[0];
+  const right = [65535];
+
+  const posB = generateBetween(posA, right, 100);
+  const opB: WireOperation = {
+    type: "insert",
+    docId,
+    siteId: siteB,
+    opId: { site: siteB, counter: 0 },
+    payload: { position: posB.slice(), value: "B" } as InsertPayload,
+    timestamp: Date.now(),
+  };
+  clientA.injectRemoteOp(opB);
+  if (clientA.getVisibleText() !== "AB") throw new Error(`after B: expected "AB", got "${clientA.getVisibleText()}"`);
+
+  clientA.insertBetween(posB, right, "C");
+  if (clientA.getVisibleText() !== "ABC") throw new Error(`after C: expected "ABC", got "${clientA.getVisibleText()}"`);
+
+  const ok = clientA.undo();
+  if (!ok) throw new Error("undo should succeed");
+  const text = clientA.getVisibleText();
+  if (text !== "AB") throw new Error(`after undo: expected "AB", got "${text}"`);
+
+  console.log("Selective undo test passed.");
+}
+
+// Deterministic test (no server). Run this first.
+runSelectiveUndoTest();
+
+// Cursor test requires ws://localhost:8080/ws
+// runCursorStabilityTest();

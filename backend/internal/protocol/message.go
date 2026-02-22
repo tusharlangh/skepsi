@@ -32,13 +32,16 @@ type OpId struct {
 	Counter int    `json:"counter"`
 }
 
+// Operation is a single edit (insert/delete) or undo inverse. Undo is expressed
+// as a normal insert/delete; InverseOpId links it to the op being undone.
 type Operation struct {
-	Type      string          `json:"type"`
-	DocId     string          `json:"docId"`
-	SiteId    string          `json:"siteId"`
-	OpId      OpId            `json:"opId"`
-	Payload   json.RawMessage `json:"payload"`
-	Timestamp int64           `json:"timestamp"`
+	Type        string          `json:"type"`
+	DocId       string          `json:"docId"`
+	SiteId      string          `json:"siteId"`
+	OpId        OpId            `json:"opId"`
+	Payload     json.RawMessage `json:"payload"`
+	Timestamp   int64           `json:"timestamp"`
+	InverseOpId *OpId           `json:"inverseOpId,omitempty"`
 }
 
 type JoinMessage struct {
