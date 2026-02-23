@@ -55,8 +55,9 @@ export class CrdtClient {
 
   insertAt(index: number, value: string): void {
     const visible = this.state.getVisibleState();
-    const left = index <= 0 ? [0] : visible.indexToPosition(index - 1);
-    const right = index >= visible.getText().length ? [65535] : visible.indexToPosition(index);
+    const positions = visible.getPositions();
+    const left = index <= 0 ? [0] : positions[index - 1];
+    const right = index >= positions.length ? [65535] : positions[index];
     this.insertBetween(left, right, value);
   }
 
@@ -111,7 +112,11 @@ export class CrdtClient {
     if (!entry) return false;
     const inverse = this.buildInverseOp(entry);
     this.state.markUndone(entry.opId);
+    
+    this.state.applyToConfirmed(inverse);
+    this.state.recordToHistory(inverse, true);
     this.state.pushPending(inverse);
+    
     this.network.sendOp(inverse);
     this.config.onStateChange?.();
     return true;
@@ -123,8 +128,17 @@ export class CrdtClient {
     if (!opId) return false;
     const op = this.state.getOpByOpId(opId);
     if (!op || (op.type !== "insert" && op.type !== "delete")) return false;
+    
     const redoOp = this.buildRedoOp(op);
+    let deletedValue: string | undefined;
+    if (redoOp.type === "delete") {
+      deletedValue = this.state.getDeletedValueForOpId(opId);
+    }
+    
+    this.state.applyToConfirmed(redoOp);
+    this.state.recordToHistory(redoOp, true, deletedValue);
     this.state.pushPending(redoOp);
+    
     this.network.sendOp(redoOp);
     this.config.onStateChange?.();
     return true;

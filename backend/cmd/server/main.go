@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"skepsi/backend/internal/logger"
+	"skepsi/backend/internal/metrics"
 	"skepsi/backend/internal/room"
 	"skepsi/backend/internal/ws"
 
@@ -31,6 +32,13 @@ func main() {
 	defer cancel()
 
 	go hub.Run(ctx)
+
+	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		rooms, peers := roomManager.Stats()
+		metrics.SetActiveRooms(rooms)
+		metrics.SetActivePeers(peers)
+		metrics.Handler(w, r)
+	})
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)

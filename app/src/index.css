@@ -1,0 +1,134 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    "Prompt",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    sans-serif;
+  font-size: 16px;
+  color: #1d1d1f;
+  background: #fbfbfd;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 24px 64px;
+}
+
+.app-header {
+  margin-bottom: 24px;
+}
+
+.app-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1d1d1f;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.doc-wrap {
+  width: 100%;
+  max-width: 680px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  padding: 8px 8px;
+  min-height: 48px;
+}
+
+.toolbar button {
+  padding: 8px 14px;
+  font-size: 14px;
+  color: #1d1d1f;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.toolbar button:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.toolbar button:disabled {
+  color: #86868b;
+  cursor: default;
+}
+
+.toolbar .spacer {
+  flex: 1;
+}
+
+.status {
+  font-size: 13px;
+  color: #86868b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34c759;
+}
+
+.status-dot.off {
+  background: #86868b;
+}
+
+.editor-area {
+  flex: 1;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-bottom: 10px;
+  overflow: auto;
+}
+
+.editor-area textarea {
+  width: 100%;
+  min-height: 320px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  outline: none;
+  resize: none;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #1d1d1f;
+  background: transparent;
+}
+
+.editor-area textarea::placeholder {
+  color: #86868b;
+}
