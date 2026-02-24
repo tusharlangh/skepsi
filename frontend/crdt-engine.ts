@@ -107,7 +107,11 @@ export class CrdtEngine {
   applyRemote(position: Position, value: string, deleted: boolean): void {
     const i = indexOfByPosition(this.elements, position);
     if (i >= 0) {
-      if (deleted) this.elements[i].deleted = true;
+      if (deleted) {
+        this.elements[i].deleted = true;
+      } else {
+        this.elements[i].deleted = false;
+      }
       return;
     }
     if (deleted) return;

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"skepsi/backend/internal/logger"
+	"skepsi/backend/internal/metrics"
 )
 
 type Manager struct {
@@ -195,6 +196,20 @@ func newRoom(docId string, manager *Manager) *room {
 	}
 }
 
+func safeSend(ch chan []byte, msg []byte) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	select {
+	case ch <- msg:
+		return true
+	default:
+		return false
+	}
+}
+
 func (r *room) run() {
 	for cmd := range r.commands {
 		if cmd.join != nil {
@@ -216,9 +231,7 @@ func (r *room) run() {
 				if id == b.exclude {
 					continue
 				}
-				select {
-				case p.ch <- b.raw:
-				default:
+				if !safeSend(p.ch, b.raw) {
 					delete(r.siteToConn, p.siteId)
 					delete(r.peersByConn, id)
 					r.manager.Drop(id)
@@ -235,9 +248,7 @@ func (r *room) run() {
 			}
 			if len(candidates) > 0 {
 				p := candidates[rand.Intn(len(candidates))]
-				select {
-				case p.ch <- f.raw:
-				default:
+				if !safeSend(p.ch, f.raw) {
 					delete(r.siteToConn, p.siteId)
 					delete(r.peersByConn, p.connID)
 					r.manager.Drop(p.connID)
@@ -254,15 +265,22 @@ func (r *room) run() {
 			if p == nil {
 				continue
 			}
-			select {
-			case p.ch <- s.raw:
-			default:
+			if !safeSend(p.ch, s.raw) {
 				delete(r.siteToConn, p.siteId)
 				delete(r.peersByConn, p.connID)
 				r.manager.Drop(p.connID)
 			}
 		}
 	}
+}
+
+func (m *Manager) Stats() (rooms uint64, peers uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, r := range m.rooms {
+		peers += uint64(len(r.peersByConn))
+	}
+	return uint64(len(m.rooms)), peers
 }
 
 func (m *Manager) EnsureJoin(docId string, connID uint64, siteId string, sendCh chan []byte) {
@@ -276,6 +294,7 @@ func (m *Manager) EnsureJoin(docId string, connID uint64, siteId string, sendCh 
 		}{docId, connID, siteId, sendCh},
 	}:
 	default:
+		metrics.IncBackpressure()
 		logger.WithConnAndDoc(connID, docId).Warn("room_manager_backpressure_drop")
 	}
 }
@@ -297,6 +316,7 @@ func (m *Manager) Broadcast(docId string, raw []byte, excludeConnID uint64) {
 		}{docId, raw, excludeConnID},
 	}:
 	default:
+		metrics.IncBackpressure()
 		logger.WithDoc(docId).Warn("room_broadcast_backpressure_drop")
 	}
 }
@@ -311,6 +331,7 @@ func (m *Manager) ForwardJoinToOnePeer(docId string, excludeConnID uint64, raw [
 		}{docId, excludeConnID, raw},
 	}:
 	default:
+		metrics.IncBackpressure()
 		logger.WithDoc(docId).Warn("room_forward_join_backpressure_drop")
 	}
 }
@@ -325,6 +346,7 @@ func (m *Manager) SendToTarget(docId string, targetSiteId string, raw []byte) {
 		}{docId, targetSiteId, raw},
 	}:
 	default:
+		metrics.IncBackpressure()
 		logger.WithDoc(docId).Warn("room_send_to_target_backpressure_drop")
 	}
 }

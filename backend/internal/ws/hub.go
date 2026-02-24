@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"skepsi/backend/internal/logger"
+	"skepsi/backend/internal/metrics"
 	"skepsi/backend/internal/protocol"
 	"skepsi/backend/internal/room"
 
@@ -45,12 +46,15 @@ func (h *Hub) Run(ctx context.Context) {
 			return
 		case c := <-h.register:
 			h.conns[c.ID] = c
+			metrics.IncConnections()
+			metrics.SetActiveConns(uint64(len(h.conns)))
 			logger.Log.Info("client_connected", "conn_id", c.ID, "total", len(h.conns))
 		case c := <-h.unregister:
 			if _, ok := h.conns[c.ID]; !ok {
 				continue
 			}
 			delete(h.conns, c.ID)
+			metrics.SetActiveConns(uint64(len(h.conns)))
 			h.rooms.LeaveAll(c.ID)
 			c.Close()
 			logger.Log.Info("client_disconnected", "conn_id", c.ID, "total", len(h.conns))
@@ -95,6 +99,7 @@ func (h *Hub) handleMessage(ctx context.Context, connID uint64, raw []byte) {
 			logger.WithConn(connID).Warn("invalid_message", "error", err)
 			return
 		}
+		metrics.IncOpsProcessed()
 		h.rooms.EnsureJoin(op.DocId, connID, op.SiteId, c.Send)
 		h.rooms.Broadcast(op.DocId, raw, connID)
 	}
@@ -115,6 +120,7 @@ func (h *Hub) Incoming(connID uint64, raw []byte) {
 	select {
 	case h.incoming <- incomingMsg{connID: connID, raw: raw}:
 	default:
+		metrics.IncBackpressure()
 		logger.WithConn(connID).Warn("router_backpressure_drop")
 	}
 }

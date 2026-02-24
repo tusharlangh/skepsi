@@ -16,6 +16,32 @@ export type WireOperation = {
   inverseOpId?: OpId;
 };
 
+export type JoinMessage = {
+  type: "join";
+  docId: string;
+  siteId: string;
+  knownClock: number;
+};
+
+export type SyncOpMessage = {
+  type: "sync_op";
+  docId: string;
+  target: string;
+  op: WireOperation;
+};
+
+export type SyncDoneMessage = {
+  type: "sync_done";
+  docId: string;
+  target: string;
+};
+
+export type InboundMessage =
+  | WireOperation
+  | JoinMessage
+  | SyncOpMessage
+  | SyncDoneMessage;
+
 export function opIdKey(opId: OpId): string {
   return `${opId.site}:${opId.counter}`;
 }
