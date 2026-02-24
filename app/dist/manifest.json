@@ -1,0 +1,9 @@
+{
+  "name": "Skepsi",
+  "short_name": "Skepsi",
+  "description": "Offline-first collaborative editor",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbfbfd",
+  "theme_color": "#1d1d1f"
+}

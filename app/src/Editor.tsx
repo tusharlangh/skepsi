@@ -1,3 +1,4 @@
+import type { ConnectionStatus } from "@frontend/crdtClient";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CrdtClient } from "@frontend/crdtClient";
 import { Undo2, Redo2 } from "lucide-react";
@@ -20,7 +21,7 @@ export default function Editor() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cursorRef = useRef(0);
   const [cursorIndex, setCursorIndex] = useState(0);
-  const [connected, setConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("offline");
 
   useEffect(() => {
     const siteId = getOrCreateSiteId();
@@ -35,14 +36,14 @@ export default function Editor() {
         if (clientRef.current)
           cursorRef.current = clientRef.current.getCursorIndex();
       },
+      onConnectionStatusChange: setConnectionStatus,
     });
     clientRef.current = client;
     cursorRef.current = 0;
     client.connect();
+    setConnectionStatus(client.getConnectionStatus());
     setRefresh((n) => n + 1);
-    const t = setTimeout(() => setConnected(true), 400);
     return () => {
-      clearTimeout(t);
       client.disconnect();
       clientRef.current = null;
     };
@@ -169,27 +170,43 @@ export default function Editor() {
     syncCursorFromClient();
   }, [syncCursorFromClient]);
 
+  const statusLabel =
+    connectionStatus === "offline"
+      ? "Offline"
+      : connectionStatus === "connecting"
+        ? "Connecting…"
+        : connectionStatus === "syncing"
+          ? "Syncing…"
+          : "Online";
+
   return (
     <div className="doc-wrap">
       <div className="toolbar">
-        <button
-          type="button"
-          onClick={handleUndo}
-          disabled={!canUndo}
-          title="Undo"
-          style={{ cursor: "pointer" }}
+        <span
+          className={`connection-pill ${connectionStatus}`}
+          title={statusLabel}
         >
-          <Undo2 size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={handleRedo}
-          disabled={!canRedo}
-          title="Redo"
-          style={{ cursor: "pointer" }}
-        >
-          <Redo2 size={14} />
-        </button>
+          <span className="dot" />
+          {statusLabel}
+        </span>
+        <div className="actions">
+          <button
+            type="button"
+            onClick={handleUndo}
+            disabled={!canUndo}
+            title="Undo"
+          >
+            <Undo2 size={18} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onClick={handleRedo}
+            disabled={!canRedo}
+            title="Redo"
+          >
+            <Redo2 size={18} strokeWidth={2} />
+          </button>
+        </div>
       </div>
       <div className="editor-area">
         <textarea
@@ -200,6 +217,7 @@ export default function Editor() {
           onKeyDown={handleKeyDown}
           onSelect={handleSelect}
           placeholder="Start typing…"
+          autoFocus
           spellCheck={false}
         />
       </div>

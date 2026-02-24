@@ -4,6 +4,10 @@ import type { InsertPayload, DeletePayload } from "./types";
 import { generateBetween } from "./crdt-engine";
 import { EditorState } from "./editorState";
 import { CollabNetwork } from "./network";
+import type { ConnectionStatus } from "./network";
+import { loadPersistedOps } from "./persistence";
+
+export type { ConnectionStatus };
 
 export type CrdtClientConfig = {
   url: string;
@@ -11,6 +15,7 @@ export type CrdtClientConfig = {
   siteId: string;
   siteBias: number;
   onStateChange?: () => void;
+  onConnectionStatusChange?: (status: ConnectionStatus) => void;
 };
 
 export class CrdtClient {
@@ -27,16 +32,36 @@ export class CrdtClient {
       docId: config.docId,
       siteId: config.siteId,
       onOp: (op, isFromSelf) => this.handleOp(op, isFromSelf),
-      onJoinRequest: undefined,
+      onSyncComplete: () => this.config.onStateChange?.(),
+      onConnectionStatusChange: config.onConnectionStatusChange,
+      onJoinRequest: (join) => {
+        for (const op of this.network.getOpLog()) {
+          this.network.sendSyncOp(join.siteId, op);
+        }
+        this.network.sendSyncDone(join.siteId);
+      },
     });
+    this.network.setApplyOp((op, isFromSelf) => this.handleOp(op, isFromSelf));
   }
 
   connect(): void {
+    const persisted = loadPersistedOps(this.config.docId);
+    for (const op of persisted) {
+      if (op.opId.site === this.config.siteId && op.opId.counter >= this.opCounter) {
+        this.opCounter = op.opId.counter + 1;
+      }
+      this.handleOp(op, false);
+      this.network.recordOp(op);
+    }
     this.network.connect();
   }
 
   disconnect(): void {
     this.network.disconnect();
+  }
+
+  getConnectionStatus(): ConnectionStatus {
+    return this.network.getConnectionStatus();
   }
 
   getVisibleText(): string {
@@ -76,6 +101,7 @@ export class CrdtClient {
     this.state.applyToConfirmed(op);
     this.state.recordToHistory(op, true);
     this.state.pushPending(op);
+    this.network.recordOp(op);
     this.network.sendOp(op);
     this.config.onStateChange?.();
   }
@@ -102,6 +128,7 @@ export class CrdtClient {
     this.state.applyToConfirmed(op);
     this.state.recordToHistory(op, true, deletedValue);
     this.state.pushPending(op);
+    this.network.recordOp(op);
     this.network.sendOp(op);
     this.config.onStateChange?.();
   }
@@ -116,7 +143,8 @@ export class CrdtClient {
     this.state.applyToConfirmed(inverse);
     this.state.recordToHistory(inverse, true);
     this.state.pushPending(inverse);
-    
+
+    this.network.recordOp(inverse);
     this.network.sendOp(inverse);
     this.config.onStateChange?.();
     return true;
@@ -138,7 +166,8 @@ export class CrdtClient {
     this.state.applyToConfirmed(redoOp);
     this.state.recordToHistory(redoOp, true, deletedValue);
     this.state.pushPending(redoOp);
-    
+
+    this.network.recordOp(redoOp);
     this.network.sendOp(redoOp);
     this.config.onStateChange?.();
     return true;
