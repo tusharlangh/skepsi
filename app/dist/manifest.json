@@ -1,9 +1,9 @@
 {
-  "name": "Skepsi",
+  "name": "Skepsi — Playful collaborative editor",
   "short_name": "Skepsi",
-  "description": "Offline-first collaborative editor",
+  "description": "Playful writing. Works offline.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fbfbfd",
-  "theme_color": "#1d1d1f"
+  "background_color": "#fef9f5",
+  "theme_color": "#2d2520"
 }

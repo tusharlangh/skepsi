@@ -1,6 +1,10 @@
 # Skepsi
 
+Optimized for unreliable campus networks. Edit offline, sync when you're back.
+
 A real time collaborative text editor. Multiple people can edit the same document at once and it stays in sync. Uses a CRDT so theres no central lock and everyone converges to the same state eventually.
+
+**For students:** Campus WiFi in lecture halls, dorms, and libraries is often slow or drops. Skepsi lets you edit fully offline. Your changes are queued locally and sync automatically when you're back online. No lost edits. CRDTs merge conflict free so everyone converges to the same doc. No signup; share a link and collaborate.
 
 Backend is Go, frontend is TypeScript. They talk over WebSockets. The document is a position based list CRDT (variable length integer paths, lexicographic order). Undo is done by sending an inverse op so when you undo your insert it becomes a delete that gets broadcast to everyone.
 

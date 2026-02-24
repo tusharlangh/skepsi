@@ -34,6 +34,7 @@ export class CrdtClient {
       onOp: (op, isFromSelf) => this.handleOp(op, isFromSelf),
       onSyncComplete: () => this.config.onStateChange?.(),
       onConnectionStatusChange: config.onConnectionStatusChange,
+      onPendingCountChange: () => this.config.onStateChange?.(),
       onJoinRequest: (join) => {
         for (const op of this.network.getOpLog()) {
           this.network.sendSyncOp(join.siteId, op);
@@ -62,6 +63,14 @@ export class CrdtClient {
 
   getConnectionStatus(): ConnectionStatus {
     return this.network.getConnectionStatus();
+  }
+
+  getSiteId(): string {
+    return this.config.siteId;
+  }
+
+  getPendingCount(): number {
+    return this.network.getPendingCount();
   }
 
   getVisibleText(): string {

@@ -157,3 +157,97 @@ body {
 .editor-area textarea::selection {
   background: rgba(232, 165, 75, 0.25);
 }
+
+.landing {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.landing-card {
+  max-width: 400px;
+  width: 100%;
+  padding: 40px 32px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 24px rgba(45, 37, 32, 0.06);
+}
+
+.landing-card h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 600;
+  color: #2d2520;
+}
+
+.landing-subtitle {
+  margin: 0 0 28px;
+  font-size: 15px;
+  color: #8b7355;
+}
+
+.landing-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.landing-btn {
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.9);
+  color: #2d2520;
+}
+
+.landing-btn:hover:not(:disabled) {
+  background: rgba(245, 230, 220, 0.6);
+  border-color: rgba(139, 115, 85, 0.2);
+}
+
+.landing-btn.primary {
+  background: #2d2520;
+  color: #fef9f5;
+  border-color: #2d2520;
+}
+
+.landing-btn.primary:hover {
+  background: #3d3228;
+  border-color: #3d3228;
+}
+
+.landing-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.landing-join {
+  display: flex;
+  gap: 8px;
+}
+
+.landing-input {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 15px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #2d2520;
+}
+
+.landing-input::placeholder {
+  color: #b8a898;
+}
+
+.landing-input:focus {
+  outline: none;
+  border-color: rgba(139, 115, 85, 0.3);
+}

@@ -27,6 +27,7 @@ export type NetworkConfig = {
   onSyncComplete?: () => void;
   onJoinRequest?: (join: JoinMessage) => void;
   onConnectionStatusChange?: (status: ConnectionStatus) => void;
+  onPendingCountChange?: (count: number) => void;
 };
 
 function parseMessage(raw: string): InboundMessage | null {
@@ -64,6 +65,10 @@ export class CollabNetwork {
 
   getConnectionStatus(): ConnectionStatus {
     return this.connectionStatus;
+  }
+
+  getPendingCount(): number {
+    return this.pendingOutbound.length;
   }
 
   private setConnectionStatus(status: ConnectionStatus): void {
@@ -133,6 +138,7 @@ export class CollabNetwork {
     }
     this.pendingOutbound = [];
     persistPendingOps(this.config.docId, []);
+    this.config.onPendingCountChange?.(0);
   }
 
   private scheduleSyncTimeout(): void {
@@ -172,6 +178,7 @@ export class CollabNetwork {
     } else {
       this.pendingOutbound.push(op);
       persistPendingOps(this.config.docId, this.pendingOutbound);
+      this.config.onPendingCountChange?.(this.pendingOutbound.length);
     }
   }
 
