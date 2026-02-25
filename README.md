@@ -48,6 +48,16 @@ npm run dev
 
 Open the URL Vite prints (usually http://localhost:5173). Open a second tab or window to the same URL to see two clients editing the same doc. Set `VITE_WS_URL` if your server is not on localhost:8080.
 
+## Scaling: multiple WebSocket servers
+
+You can run multiple backend instances behind a load balancer. Clients include the document id in the WebSocket URL (`ws://host/ws?doc=<docId>`), so the load balancer can route by document and send all peers for the same document to the same backend.
+
+- **Routing**: Configure the load balancer to hash on the `doc` query parameter so that all connections for the same document hit the same backend. Reconnects use the same `doc` in the URL (the app reuses the same doc id), so they land on the same server.
+- **Nginx**: Use `hash $arg_doc consistent;` when proxying to an `upstream` of WebSocket backends.
+- **HAProxy**: Use a stick-table or similar mechanism keyed by the `doc` query parameter so that the same doc always goes to the same server.
+
+No Redis or shared store is required; each backend keeps its rooms in memory. If a backend goes down, only the documents (and connections) on that backend are affected.
+
 ## How to run the tests
 
 Backend unit tests and CRDT convergence tests:

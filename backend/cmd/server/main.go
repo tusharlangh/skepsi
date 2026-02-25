@@ -46,6 +46,10 @@ func main() {
 			logger.Log.Warn("upgrade_failed", "error", err)
 			return
 		}
+		doc := r.URL.Query().Get("doc")
+		if doc != "" {
+			logger.Log.Info("ws_connect", "doc", doc)
+		}
 		c := hub.Register(conn)
 		go c.ReadPump(ctx, func(raw []byte) {
 			hub.Incoming(c.ID, raw)

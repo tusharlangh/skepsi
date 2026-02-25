@@ -36,9 +36,9 @@ type managerCmd struct {
 		raw          []byte
 	}
 	sendToTarget *struct {
-		docId       string
+		docId        string
 		targetSiteId string
-		raw         []byte
+		raw          []byte
 	}
 }
 

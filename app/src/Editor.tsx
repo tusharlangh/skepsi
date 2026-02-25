@@ -1,24 +1,10 @@
 import type { ConnectionStatus } from "@frontend/crdtClient";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CrdtClient } from "@frontend/crdtClient";
-import {
-  Undo2,
-  Redo2,
-  Link2,
-  Copy,
-  List,
-  Download,
-  CopyPlus,
-  Home,
-} from "lucide-react";
+import { Undo2, Redo2, Copy, CopyPlus, Home } from "lucide-react";
 import { createSnapshotForNewDoc } from "@frontend/snapshot";
 import { generateDocId, setDocIdInUrl, clearDocIdFromUrl } from "./useDocId";
 const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080/ws";
-
-function getLineStart(text: string, cursorIndex: number): number {
-  const lastNewline = text.lastIndexOf("\n", cursorIndex - 1);
-  return lastNewline === -1 ? 0 : lastNewline + 1;
-}
 
 function getOrCreateSiteId(): string {
   let id = localStorage.getItem("skepsi_site_id");
@@ -27,6 +13,11 @@ function getOrCreateSiteId(): string {
     localStorage.setItem("skepsi_site_id", id);
   }
   return id;
+}
+
+function countWords(text: string): number {
+  if (!text.trim()) return 0;
+  return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
 type EditorProps = { docId: string };
@@ -39,7 +30,6 @@ export default function Editor({ docId }: EditorProps) {
   const [cursorIndex, setCursorIndex] = useState(0);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("offline");
-  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     const siteId = getOrCreateSiteId();
@@ -188,47 +178,10 @@ export default function Editor({ docId }: EditorProps) {
     syncCursorFromClient();
   }, [syncCursorFromClient]);
 
-  const handleInsertBullet = useCallback(() => {
-    const client = clientRef.current;
-    if (!client) return;
-    const t = client.getVisibleText();
-    const idx = client.getCursorIndex();
-    const lineStart = getLineStart(t, idx);
-    client.insertAt(lineStart, "•");
-    client.insertAt(lineStart + 1, " ");
-    cursorRef.current = lineStart + 2;
-    setCursorIndex(lineStart + 2);
-    setRefresh((n) => n + 1);
-    const ta = textareaRef.current;
-    if (ta) {
-      ta.setSelectionRange(lineStart + 2, lineStart + 2);
-      ta.focus();
-    }
-  }, []);
-
-  const handleCopyLink = useCallback(() => {
-    navigator.clipboard.writeText(window.location.href).then(() => {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    });
-  }, []);
-
   const handleCopyText = useCallback(() => {
     const t = clientRef.current?.getVisibleText() ?? "";
     if (t) navigator.clipboard.writeText(t);
   }, []);
-
-  const handleDownload = useCallback(() => {
-    const t = clientRef.current?.getVisibleText() ?? "";
-    if (!t) return;
-    const blob = new Blob([t], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `notes-${docId}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [docId]);
 
   const handleSaveMyCopy = useCallback(() => {
     const client = clientRef.current;
@@ -240,6 +193,7 @@ export default function Editor({ docId }: EditorProps) {
   }, []);
 
   const pendingCount = client?.getPendingCount() ?? 0;
+  const wordCount = countWords(text);
   const statusLabel =
     connectionStatus === "offline"
       ? pendingCount > 0
@@ -261,6 +215,7 @@ export default function Editor({ docId }: EditorProps) {
           <span className="dot" />
           {statusLabel}
         </span>
+        <span className="word-count">{wordCount} words</span>
         <div className="actions">
           <button
             type="button"
@@ -269,21 +224,6 @@ export default function Editor({ docId }: EditorProps) {
           >
             <Home size={18} strokeWidth={2} />
           </button>
-          <button type="button" onClick={handleInsertBullet} title="Bullet">
-            <List size={18} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            className="toolbar-btn-copy"
-            onClick={handleCopyLink}
-            title={linkCopied ? "Copied!" : "Copy link"}
-          >
-            {linkCopied ? (
-              <span className="toolbar-copied">Copied!</span>
-            ) : (
-              <Link2 size={18} strokeWidth={2} />
-            )}
-          </button>
           <button
             type="button"
             onClick={handleCopyText}
@@ -291,14 +231,6 @@ export default function Editor({ docId }: EditorProps) {
             title="Copy document"
           >
             <Copy size={18} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={!text}
-            title="Save as file"
-          >
-            <Download size={18} strokeWidth={2} />
           </button>
           <button type="button" onClick={handleSaveMyCopy} title="Save my copy">
             <CopyPlus size={18} strokeWidth={2} />

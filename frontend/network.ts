@@ -82,7 +82,9 @@ export class CollabNetwork {
     this.shouldReconnect = true;
     this.setConnectionStatus("connecting");
     this.pendingOutbound = loadPendingOps(this.config.docId);
-    this.ws = new WebSocket(this.config.url);
+    const u = new URL(this.config.url);
+    u.searchParams.set("doc", this.config.docId);
+    this.ws = new WebSocket(u.toString());
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
       this.setConnectionStatus("syncing");

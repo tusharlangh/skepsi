@@ -23,10 +23,10 @@ export default function Landing() {
 
   return (
     <div className="landing">
-      <div className="landing-card">
+      <div className="landing-inner">
         <img src="/logo.svg" alt="Skepsi" className="landing-logo" />
         <h1>Skepsi</h1>
-        <p className="landing-subtitle">Live collaborative notes for lectures</p>
+        <p className="landing-subtitle">Collaborative notes that sync offline. Share a link and edit together.</p>
         <div className="landing-actions">
           <button type="button" className="landing-btn primary" onClick={handleNewLecture}>
             New lecture
