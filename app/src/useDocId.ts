@@ -21,9 +21,19 @@ export function setDocIdInUrl(docId: string): void {
   }
 }
 
+/** Clears the doc from the URL and returns to the landing page. */
+export function clearDocIdFromUrl(): void {
+  window.location.hash = "";
+}
+
 export function parseDocIdFromUrl(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
   try {
-    const parsed = new URL(url);
+    // Handle relative URLs (e.g. "#/doc/abc123" or "/#/doc/abc123")
+    const parsed = trimmed.startsWith("http")
+      ? new URL(trimmed)
+      : new URL(trimmed, window.location.origin);
     const hash = parsed.hash;
     if (!hash.startsWith(DOC_PATH_PREFIX)) return null;
     const id = hash.slice(DOC_PATH_PREFIX.length).split("/")[0];

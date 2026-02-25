@@ -1,6 +1,6 @@
 const CACHE_NAME = "skepsi-v2";
 
-const PRECACHE_URLS = ["/","/index.html","/manifest.json","/assets/index-DA7CAv5G.js","/assets/index-XIoNm5Iu.css"];
+const PRECACHE_URLS = ["/","/index.html","/manifest.json","/assets/index-B9pwxy5x.js","/assets/index-BZLtSYIZ.css"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -68,7 +68,7 @@ We use a fixed random seed so the chaos is deterministic and the tests are repro
 
 ## Performance
 
-Metrics are exposed at `GET /metrics` (Prometheus text format; append `?format=json` for JSON). Counters: `ops_processed_total`, `connections_total`, `backpressure_drops_total`. Gauges: `active_connections`, `active_rooms`, `active_peers`.
+Metrics are exposed at `GET /metrics` (Prometheus text format; append `?format=json` for JSON). Counters: `ops_processed_total`, `connections_total`, `backpressure_drops_total`, `send_skips_total`. Gauges: `active_connections`, `active_rooms`, `active_peers`.
 
 Metrics only update when traffic hits the running server. The load test uses an in-process test server by default, so it does not affect `localhost:8080`. To populate metrics on a running server: start the server, then either run the app and edit, or run the load test against it:
 
@@ -104,7 +104,16 @@ go test ./crdt/sim/ -bench=BenchmarkConvergence -benchtime=3s
 
 **Chaos scenarios** (reorder, duplicate, late join, offline editing) are covered in `go test ./crdt/sim/ -v`.
 
-**Buffer sizes**: Hub incoming 1024; connection send 256; room commands 64. Backpressure drops occur when send channels are full; drops are logged and counted in `backpressure_drops_total`.
+**Buffer sizes**: Hub incoming 2048; connection send 2048; manager commands 512; room commands 256. Clients are dropped only after 5 consecutive send failures (buffer full), so brief network hiccups do not disconnect. Send skips (when buffer is full but we don't drop yet) are counted in `send_skips_total`. Backpressure drops (when command channels are full) are logged and counted in `backpressure_drops_total`.
+
+**400-connection test** (validates scale for large lectures):
+
+```bash
+cd backend
+go test ./load/ -run Test400ConcurrentConnections -v
+```
+
+Skipped in short mode (`go test -short`). May require higher `ulimit` for 400 sockets on some systems.
 
 ## Tech stack
 

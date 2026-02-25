@@ -32,7 +32,7 @@ func NewHub(roomManager *room.Manager) *Hub {
 		conns:      make(map[uint64]*Connection),
 		register:   make(chan *Connection),
 		unregister: make(chan *Connection),
-		incoming:   make(chan incomingMsg, 1024),
+		incoming:   make(chan incomingMsg, 2048),
 		rooms:      roomManager,
 		done:       make(chan struct{}),
 	}

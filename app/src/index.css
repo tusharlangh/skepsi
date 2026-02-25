@@ -176,6 +176,13 @@ body {
   box-shadow: 0 4px 24px rgba(45, 37, 32, 0.06);
 }
 
+.landing-logo {
+  display: block;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+}
+
 .landing-card h1 {
   margin: 0 0 8px;
   font-size: 28px;
@@ -250,4 +257,28 @@ body {
 .landing-input:focus {
   outline: none;
   border-color: rgba(139, 115, 85, 0.3);
+}
+
+.landing-input-error {
+  border-color: rgba(180, 80, 60, 0.5);
+}
+
+.landing-input-error:focus {
+  border-color: rgba(180, 80, 60, 0.7);
+}
+
+.landing-error {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #b4503c;
+}
+
+.toolbar .toolbar-btn-copy {
+  min-width: 52px;
+}
+
+.toolbar-copied {
+  font-size: 12px;
+  font-weight: 500;
+  color: #5c4a3a;
 }

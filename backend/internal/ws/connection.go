@@ -16,7 +16,7 @@ const (
 	PongWait        = 60 * time.Second
 	PingPeriod      = (PongWait * 9) / 10
 	MaxMessageBytes = 1 << 20
-	SendBufferSize  = 256
+	SendBufferSize  = 2048
 )
 
 type Connection struct {

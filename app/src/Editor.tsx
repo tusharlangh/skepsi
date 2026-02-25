@@ -1,9 +1,18 @@
 import type { ConnectionStatus } from "@frontend/crdtClient";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CrdtClient } from "@frontend/crdtClient";
-import { Undo2, Redo2, Link2, Copy, List, Download, CopyPlus } from "lucide-react";
+import {
+  Undo2,
+  Redo2,
+  Link2,
+  Copy,
+  List,
+  Download,
+  CopyPlus,
+  Home,
+} from "lucide-react";
 import { createSnapshotForNewDoc } from "@frontend/snapshot";
-import { generateDocId, setDocIdInUrl } from "./useDocId";
+import { generateDocId, setDocIdInUrl, clearDocIdFromUrl } from "./useDocId";
 const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080/ws";
 
 function getLineStart(text: string, cursorIndex: number): number {
@@ -28,7 +37,9 @@ export default function Editor({ docId }: EditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cursorRef = useRef(0);
   const [cursorIndex, setCursorIndex] = useState(0);
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("offline");
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("offline");
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     const siteId = getOrCreateSiteId();
@@ -196,7 +207,10 @@ export default function Editor({ docId }: EditorProps) {
   }, []);
 
   const handleCopyLink = useCallback(() => {
-    navigator.clipboard.writeText(window.location.href);
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
   }, []);
 
   const handleCopyText = useCallback(() => {
@@ -250,17 +264,25 @@ export default function Editor({ docId }: EditorProps) {
         <div className="actions">
           <button
             type="button"
-            onClick={handleInsertBullet}
-            title="Bullet"
+            onClick={clearDocIdFromUrl}
+            title="New document"
           >
+            <Home size={18} strokeWidth={2} />
+          </button>
+          <button type="button" onClick={handleInsertBullet} title="Bullet">
             <List size={18} strokeWidth={2} />
           </button>
           <button
             type="button"
+            className="toolbar-btn-copy"
             onClick={handleCopyLink}
-            title="Copy link"
+            title={linkCopied ? "Copied!" : "Copy link"}
           >
-            <Link2 size={18} strokeWidth={2} />
+            {linkCopied ? (
+              <span className="toolbar-copied">Copied!</span>
+            ) : (
+              <Link2 size={18} strokeWidth={2} />
+            )}
           </button>
           <button
             type="button"
@@ -278,11 +300,7 @@ export default function Editor({ docId }: EditorProps) {
           >
             <Download size={18} strokeWidth={2} />
           </button>
-          <button
-            type="button"
-            onClick={handleSaveMyCopy}
-            title="Save my copy"
-          >
+          <button type="button" onClick={handleSaveMyCopy} title="Save my copy">
             <CopyPlus size={18} strokeWidth={2} />
           </button>
           <button
@@ -303,10 +321,7 @@ export default function Editor({ docId }: EditorProps) {
           </button>
         </div>
       </div>
-      <div
-        className="editor-area"
-        onClick={() => textareaRef.current?.focus()}
-      >
+      <div className="editor-area" onClick={() => textareaRef.current?.focus()}>
         <textarea
           ref={textareaRef}
           key="editor"

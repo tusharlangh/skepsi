@@ -42,10 +42,13 @@ type managerCmd struct {
 	}
 }
 
+const dropAfterFailures = 5
+
 type peer struct {
-	connID uint64
-	siteId string
-	ch     chan []byte
+	connID       uint64
+	siteId       string
+	ch           chan []byte
+	sendFailures int
 }
 
 type room struct {
@@ -81,7 +84,7 @@ func NewManager(onDrop func(connID uint64)) *Manager {
 	m := &Manager{
 		onDrop:   onDrop,
 		rooms:    make(map[string]*room),
-		commands: make(chan managerCmd, 256),
+		commands: make(chan managerCmd, 512),
 		done:     make(chan struct{}),
 	}
 	go m.run()
@@ -191,7 +194,7 @@ func newRoom(docId string, manager *Manager) *room {
 		docId:       docId,
 		peersByConn: make(map[uint64]*peer),
 		siteToConn:  make(map[string]uint64),
-		commands:    make(chan roomCmd, 64),
+		commands:    make(chan roomCmd, 256),
 		manager:     manager,
 	}
 }
@@ -208,6 +211,18 @@ func safeSend(ch chan []byte, msg []byte) (ok bool) {
 	default:
 		return false
 	}
+}
+
+// sendWithFailureTracking attempts to send; on failure, increments peer's sendFailures
+// and returns shouldDrop if the peer has exceeded the failure threshold.
+func sendWithFailureTracking(p *peer, raw []byte) (shouldDrop bool) {
+	if safeSend(p.ch, raw) {
+		p.sendFailures = 0
+		return false
+	}
+	p.sendFailures++
+	metrics.IncSendSkips()
+	return p.sendFailures >= dropAfterFailures
 }
 
 func (r *room) run() {
@@ -231,7 +246,7 @@ func (r *room) run() {
 				if id == b.exclude {
 					continue
 				}
-				if !safeSend(p.ch, b.raw) {
+				if sendWithFailureTracking(p, b.raw) {
 					delete(r.siteToConn, p.siteId)
 					delete(r.peersByConn, id)
 					r.manager.Drop(id)
@@ -248,7 +263,7 @@ func (r *room) run() {
 			}
 			if len(candidates) > 0 {
 				p := candidates[rand.Intn(len(candidates))]
-				if !safeSend(p.ch, f.raw) {
+				if sendWithFailureTracking(p, f.raw) {
 					delete(r.siteToConn, p.siteId)
 					delete(r.peersByConn, p.connID)
 					r.manager.Drop(p.connID)
@@ -265,7 +280,7 @@ func (r *room) run() {
 			if p == nil {
 				continue
 			}
-			if !safeSend(p.ch, s.raw) {
+			if sendWithFailureTracking(p, s.raw) {
 				delete(r.siteToConn, p.siteId)
 				delete(r.peersByConn, p.connID)
 				r.manager.Drop(p.connID)
