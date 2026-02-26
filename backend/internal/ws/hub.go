@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"sync/atomic"
+	"time"
 
 	"skepsi/backend/internal/logger"
 	"skepsi/backend/internal/metrics"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/gorilla/websocket"
 )
+
+const incomingSendTimeout = 10 * time.Second
 
 type Hub struct {
 	connIDGen  atomic.Uint64
@@ -27,12 +30,14 @@ type incomingMsg struct {
 	raw    []byte
 }
 
+const incomingBufferSize = 8192
+
 func NewHub(roomManager *room.Manager) *Hub {
 	return &Hub{
 		conns:      make(map[uint64]*Connection),
 		register:   make(chan *Connection),
 		unregister: make(chan *Connection),
-		incoming:   make(chan incomingMsg, 2048),
+		incoming:   make(chan incomingMsg, incomingBufferSize),
 		rooms:      roomManager,
 		done:       make(chan struct{}),
 	}
@@ -82,8 +87,16 @@ func (h *Hub) handleMessage(ctx context.Context, connID uint64, raw []byte) {
 			return
 		}
 		c.SiteId = j.SiteId
-		h.rooms.EnsureJoin(j.DocId, connID, j.SiteId, c.Send)
-		h.rooms.ForwardJoinToOnePeer(j.DocId, connID, raw)
+		if !h.rooms.EnsureJoin(j.DocId, connID, j.SiteId, c.Send) {
+			logger.WithConn(connID).Warn("overload_drop_conn", "doc", j.DocId)
+			h.DropClient(connID)
+			return
+		}
+		if !h.rooms.ForwardJoinToOnePeer(j.DocId, connID, raw) {
+			logger.WithConn(connID).Warn("overload_drop_conn", "doc", j.DocId)
+			h.DropClient(connID)
+			return
+		}
 		return
 	case protocol.TypeSyncOp, protocol.TypeSyncDone:
 		docId, target, err := protocol.ParseTargetedMessage(raw)
@@ -91,7 +104,11 @@ func (h *Hub) handleMessage(ctx context.Context, connID uint64, raw []byte) {
 			logger.WithConn(connID).Warn("invalid_targeted_message", "error", err)
 			return
 		}
-		h.rooms.SendToTarget(docId, target, raw)
+		if !h.rooms.SendToTarget(docId, target, raw) {
+			logger.WithConn(connID).Warn("overload_drop_conn", "doc", docId)
+			h.DropClient(connID)
+			return
+		}
 		return
 	default:
 		op, err := protocol.ValidateOperation(raw)
@@ -100,8 +117,16 @@ func (h *Hub) handleMessage(ctx context.Context, connID uint64, raw []byte) {
 			return
 		}
 		metrics.IncOpsProcessed()
-		h.rooms.EnsureJoin(op.DocId, connID, op.SiteId, c.Send)
-		h.rooms.Broadcast(op.DocId, raw, connID)
+		if !h.rooms.EnsureJoin(op.DocId, connID, op.SiteId, c.Send) {
+			logger.WithConn(connID).Warn("overload_drop_conn", "doc", op.DocId)
+			h.DropClient(connID)
+			return
+		}
+		if !h.rooms.Broadcast(op.DocId, raw, connID) {
+			logger.WithConn(connID).Warn("overload_drop_conn", "doc", op.DocId)
+			h.DropClient(connID)
+			return
+		}
 	}
 }
 
@@ -119,9 +144,10 @@ func (h *Hub) Unregister(c *Connection) {
 func (h *Hub) Incoming(connID uint64, raw []byte) {
 	select {
 	case h.incoming <- incomingMsg{connID: connID, raw: raw}:
-	default:
+	case <-time.After(incomingSendTimeout):
 		metrics.IncBackpressure()
-		logger.WithConn(connID).Warn("router_backpressure_drop")
+		logger.WithConn(connID).Warn("router_backpressure_drop", "action", "overload_drop_conn")
+		h.DropClient(connID)
 	}
 }
 
