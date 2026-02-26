@@ -32,17 +32,23 @@ export default function Editor({ docId }: EditorProps) {
     useState<ConnectionStatus>("offline");
 
   useEffect(() => {
-    const siteId = getOrCreateSiteId();
+    // Per-tab siteId so ops from another tab are not treated as self-acks (which skip UI refresh).
+    const siteId = getOrCreateSiteId() + "-" + Math.random().toString(36).slice(2, 8);
     const siteBias = Math.floor(Math.random() * 100);
+    let rafId: number | null = null;
     const client = new CrdtClient({
       url: WS_URL,
       docId,
       siteId,
       siteBias,
       onStateChange: () => {
-        setRefresh((n) => n + 1);
-        if (clientRef.current)
-          cursorRef.current = clientRef.current.getCursorIndex();
+        if (rafId !== null) return;
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          setRefresh((n) => n + 1);
+          if (clientRef.current)
+            cursorRef.current = clientRef.current.getCursorIndex();
+        });
       },
       onConnectionStatusChange: setConnectionStatus,
     });
@@ -52,6 +58,7 @@ export default function Editor({ docId }: EditorProps) {
     setConnectionStatus(client.getConnectionStatus());
     setRefresh((n) => n + 1);
     return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
       client.disconnect();
       clientRef.current = null;
     };
@@ -142,19 +149,15 @@ export default function Editor({ docId }: EditorProps) {
 
       if (deleted.length > 0) {
         const positions = client.getVisibleState().getPositions();
-        const posToDelete = [];
+        const posToDelete: number[][] = [];
         for (let i = start; i <= oldEnd; i++) {
           if (positions[i]) posToDelete.push(positions[i]);
         }
-        for (const pos of posToDelete) {
-          client.deleteAtPosition(pos);
-        }
+        client.deleteRange(posToDelete);
       }
 
       if (inserted.length > 0) {
-        for (let i = 0; i < inserted.length; i++) {
-          client.insertAt(start + i, inserted[i]);
-        }
+        client.insertRange(start, inserted);
       }
 
       if (ta) {
