@@ -4,9 +4,16 @@ import (
 	"context"
 	"math/rand"
 	"sync"
+	"time"
 
 	"skepsi/backend/internal/logger"
 	"skepsi/backend/internal/metrics"
+)
+
+const (
+	managerCommandTimeout = 5 * time.Second
+	managerCommandBuffer  = 2048
+	roomCommandBuffer     = 1024
 )
 
 type Manager struct {
@@ -36,16 +43,19 @@ type managerCmd struct {
 		raw          []byte
 	}
 	sendToTarget *struct {
-		docId       string
+		docId        string
 		targetSiteId string
-		raw         []byte
+		raw          []byte
 	}
 }
 
+const dropAfterFailures = 5
+
 type peer struct {
-	connID uint64
-	siteId string
-	ch     chan []byte
+	connID       uint64
+	siteId       string
+	ch           chan []byte
+	sendFailures int
 }
 
 type room struct {
@@ -81,7 +91,7 @@ func NewManager(onDrop func(connID uint64)) *Manager {
 	m := &Manager{
 		onDrop:   onDrop,
 		rooms:    make(map[string]*room),
-		commands: make(chan managerCmd, 256),
+		commands: make(chan managerCmd, managerCommandBuffer),
 		done:     make(chan struct{}),
 	}
 	go m.run()
@@ -191,7 +201,7 @@ func newRoom(docId string, manager *Manager) *room {
 		docId:       docId,
 		peersByConn: make(map[uint64]*peer),
 		siteToConn:  make(map[string]uint64),
-		commands:    make(chan roomCmd, 64),
+		commands:    make(chan roomCmd, roomCommandBuffer),
 		manager:     manager,
 	}
 }
@@ -208,6 +218,18 @@ func safeSend(ch chan []byte, msg []byte) (ok bool) {
 	default:
 		return false
 	}
+}
+
+// sendWithFailureTracking attempts to send; on failure, increments peer's sendFailures
+// and returns shouldDrop if the peer has exceeded the failure threshold.
+func sendWithFailureTracking(p *peer, raw []byte) (shouldDrop bool) {
+	if safeSend(p.ch, raw) {
+		p.sendFailures = 0
+		return false
+	}
+	p.sendFailures++
+	metrics.IncSendSkips()
+	return p.sendFailures >= dropAfterFailures
 }
 
 func (r *room) run() {
@@ -231,7 +253,7 @@ func (r *room) run() {
 				if id == b.exclude {
 					continue
 				}
-				if !safeSend(p.ch, b.raw) {
+				if sendWithFailureTracking(p, b.raw) {
 					delete(r.siteToConn, p.siteId)
 					delete(r.peersByConn, id)
 					r.manager.Drop(id)
@@ -248,7 +270,7 @@ func (r *room) run() {
 			}
 			if len(candidates) > 0 {
 				p := candidates[rand.Intn(len(candidates))]
-				if !safeSend(p.ch, f.raw) {
+				if sendWithFailureTracking(p, f.raw) {
 					delete(r.siteToConn, p.siteId)
 					delete(r.peersByConn, p.connID)
 					r.manager.Drop(p.connID)
@@ -265,7 +287,7 @@ func (r *room) run() {
 			if p == nil {
 				continue
 			}
-			if !safeSend(p.ch, s.raw) {
+			if sendWithFailureTracking(p, s.raw) {
 				delete(r.siteToConn, p.siteId)
 				delete(r.peersByConn, p.connID)
 				r.manager.Drop(p.connID)
@@ -283,7 +305,7 @@ func (m *Manager) Stats() (rooms uint64, peers uint64) {
 	return uint64(len(m.rooms)), peers
 }
 
-func (m *Manager) EnsureJoin(docId string, connID uint64, siteId string, sendCh chan []byte) {
+func (m *Manager) EnsureJoin(docId string, connID uint64, siteId string, sendCh chan []byte) bool {
 	select {
 	case m.commands <- managerCmd{
 		ensureJoin: &struct {
@@ -293,9 +315,11 @@ func (m *Manager) EnsureJoin(docId string, connID uint64, siteId string, sendCh 
 			sendCh  chan []byte
 		}{docId, connID, siteId, sendCh},
 	}:
-	default:
+		return true
+	case <-time.After(managerCommandTimeout):
 		metrics.IncBackpressure()
 		logger.WithConnAndDoc(connID, docId).Warn("room_manager_backpressure_drop")
+		return false
 	}
 }
 
@@ -306,7 +330,7 @@ func (m *Manager) LeaveAll(connID uint64) {
 	}
 }
 
-func (m *Manager) Broadcast(docId string, raw []byte, excludeConnID uint64) {
+func (m *Manager) Broadcast(docId string, raw []byte, excludeConnID uint64) bool {
 	select {
 	case m.commands <- managerCmd{
 		broadcast: &struct {
@@ -315,13 +339,15 @@ func (m *Manager) Broadcast(docId string, raw []byte, excludeConnID uint64) {
 			exclude uint64
 		}{docId, raw, excludeConnID},
 	}:
-	default:
+		return true
+	case <-time.After(managerCommandTimeout):
 		metrics.IncBackpressure()
 		logger.WithDoc(docId).Warn("room_broadcast_backpressure_drop")
+		return false
 	}
 }
 
-func (m *Manager) ForwardJoinToOnePeer(docId string, excludeConnID uint64, raw []byte) {
+func (m *Manager) ForwardJoinToOnePeer(docId string, excludeConnID uint64, raw []byte) bool {
 	select {
 	case m.commands <- managerCmd{
 		forwardJoinToOnePeer: &struct {
@@ -330,13 +356,15 @@ func (m *Manager) ForwardJoinToOnePeer(docId string, excludeConnID uint64, raw [
 			raw           []byte
 		}{docId, excludeConnID, raw},
 	}:
-	default:
+		return true
+	case <-time.After(managerCommandTimeout):
 		metrics.IncBackpressure()
 		logger.WithDoc(docId).Warn("room_forward_join_backpressure_drop")
+		return false
 	}
 }
 
-func (m *Manager) SendToTarget(docId string, targetSiteId string, raw []byte) {
+func (m *Manager) SendToTarget(docId string, targetSiteId string, raw []byte) bool {
 	select {
 	case m.commands <- managerCmd{
 		sendToTarget: &struct {
@@ -345,9 +373,11 @@ func (m *Manager) SendToTarget(docId string, targetSiteId string, raw []byte) {
 			raw          []byte
 		}{docId, targetSiteId, raw},
 	}:
-	default:
+		return true
+	case <-time.After(managerCommandTimeout):
 		metrics.IncBackpressure()
 		logger.WithDoc(docId).Warn("room_send_to_target_backpressure_drop")
+		return false
 	}
 }
 

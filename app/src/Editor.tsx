@@ -1,15 +1,10 @@
 import type { ConnectionStatus } from "@frontend/crdtClient";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CrdtClient } from "@frontend/crdtClient";
-import { Undo2, Redo2, Link2, Copy, List, Download, CopyPlus } from "lucide-react";
+import { Undo2, Redo2, Copy, CopyPlus, Home } from "lucide-react";
 import { createSnapshotForNewDoc } from "@frontend/snapshot";
-import { generateDocId, setDocIdInUrl } from "./useDocId";
+import { generateDocId, setDocIdInUrl, clearDocIdFromUrl } from "./useDocId";
 const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080/ws";
-
-function getLineStart(text: string, cursorIndex: number): number {
-  const lastNewline = text.lastIndexOf("\n", cursorIndex - 1);
-  return lastNewline === -1 ? 0 : lastNewline + 1;
-}
 
 function getOrCreateSiteId(): string {
   let id = localStorage.getItem("skepsi_site_id");
@@ -20,6 +15,11 @@ function getOrCreateSiteId(): string {
   return id;
 }
 
+function countWords(text: string): number {
+  if (!text.trim()) return 0;
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
 type EditorProps = { docId: string };
 
 export default function Editor({ docId }: EditorProps) {
@@ -28,20 +28,27 @@ export default function Editor({ docId }: EditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cursorRef = useRef(0);
   const [cursorIndex, setCursorIndex] = useState(0);
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("offline");
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("offline");
 
   useEffect(() => {
-    const siteId = getOrCreateSiteId();
+    // Per-tab siteId so ops from another tab are not treated as self-acks (which skip UI refresh).
+    const siteId = getOrCreateSiteId() + "-" + Math.random().toString(36).slice(2, 8);
     const siteBias = Math.floor(Math.random() * 100);
+    let rafId: number | null = null;
     const client = new CrdtClient({
       url: WS_URL,
       docId,
       siteId,
       siteBias,
       onStateChange: () => {
-        setRefresh((n) => n + 1);
-        if (clientRef.current)
-          cursorRef.current = clientRef.current.getCursorIndex();
+        if (rafId !== null) return;
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          setRefresh((n) => n + 1);
+          if (clientRef.current)
+            cursorRef.current = clientRef.current.getCursorIndex();
+        });
       },
       onConnectionStatusChange: setConnectionStatus,
     });
@@ -51,6 +58,7 @@ export default function Editor({ docId }: EditorProps) {
     setConnectionStatus(client.getConnectionStatus());
     setRefresh((n) => n + 1);
     return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
       client.disconnect();
       clientRef.current = null;
     };
@@ -141,19 +149,15 @@ export default function Editor({ docId }: EditorProps) {
 
       if (deleted.length > 0) {
         const positions = client.getVisibleState().getPositions();
-        const posToDelete = [];
+        const posToDelete: number[][] = [];
         for (let i = start; i <= oldEnd; i++) {
           if (positions[i]) posToDelete.push(positions[i]);
         }
-        for (const pos of posToDelete) {
-          client.deleteAtPosition(pos);
-        }
+        client.deleteRange(posToDelete);
       }
 
       if (inserted.length > 0) {
-        for (let i = 0; i < inserted.length; i++) {
-          client.insertAt(start + i, inserted[i]);
-        }
+        client.insertRange(start, inserted);
       }
 
       if (ta) {
@@ -177,44 +181,10 @@ export default function Editor({ docId }: EditorProps) {
     syncCursorFromClient();
   }, [syncCursorFromClient]);
 
-  const handleInsertBullet = useCallback(() => {
-    const client = clientRef.current;
-    if (!client) return;
-    const t = client.getVisibleText();
-    const idx = client.getCursorIndex();
-    const lineStart = getLineStart(t, idx);
-    client.insertAt(lineStart, "•");
-    client.insertAt(lineStart + 1, " ");
-    cursorRef.current = lineStart + 2;
-    setCursorIndex(lineStart + 2);
-    setRefresh((n) => n + 1);
-    const ta = textareaRef.current;
-    if (ta) {
-      ta.setSelectionRange(lineStart + 2, lineStart + 2);
-      ta.focus();
-    }
-  }, []);
-
-  const handleCopyLink = useCallback(() => {
-    navigator.clipboard.writeText(window.location.href);
-  }, []);
-
   const handleCopyText = useCallback(() => {
     const t = clientRef.current?.getVisibleText() ?? "";
     if (t) navigator.clipboard.writeText(t);
   }, []);
-
-  const handleDownload = useCallback(() => {
-    const t = clientRef.current?.getVisibleText() ?? "";
-    if (!t) return;
-    const blob = new Blob([t], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `notes-${docId}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [docId]);
 
   const handleSaveMyCopy = useCallback(() => {
     const client = clientRef.current;
@@ -226,6 +196,7 @@ export default function Editor({ docId }: EditorProps) {
   }, []);
 
   const pendingCount = client?.getPendingCount() ?? 0;
+  const wordCount = countWords(text);
   const statusLabel =
     connectionStatus === "offline"
       ? pendingCount > 0
@@ -247,20 +218,14 @@ export default function Editor({ docId }: EditorProps) {
           <span className="dot" />
           {statusLabel}
         </span>
+        <span className="word-count">{wordCount} words</span>
         <div className="actions">
           <button
             type="button"
-            onClick={handleInsertBullet}
-            title="Bullet"
+            onClick={clearDocIdFromUrl}
+            title="New document"
           >
-            <List size={18} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            onClick={handleCopyLink}
-            title="Copy link"
-          >
-            <Link2 size={18} strokeWidth={2} />
+            <Home size={18} strokeWidth={2} />
           </button>
           <button
             type="button"
@@ -270,19 +235,7 @@ export default function Editor({ docId }: EditorProps) {
           >
             <Copy size={18} strokeWidth={2} />
           </button>
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={!text}
-            title="Save as file"
-          >
-            <Download size={18} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            onClick={handleSaveMyCopy}
-            title="Save my copy"
-          >
+          <button type="button" onClick={handleSaveMyCopy} title="Save my copy">
             <CopyPlus size={18} strokeWidth={2} />
           </button>
           <button
@@ -303,10 +256,7 @@ export default function Editor({ docId }: EditorProps) {
           </button>
         </div>
       </div>
-      <div
-        className="editor-area"
-        onClick={() => textareaRef.current?.focus()}
-      >
+      <div className="editor-area" onClick={() => textareaRef.current?.focus()}>
         <textarea
           ref={textareaRef}
           key="editor"

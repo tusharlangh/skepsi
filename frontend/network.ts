@@ -13,6 +13,9 @@ import { persistOps, loadPendingOps, persistPendingOps } from "./persistence";
 /** If we don't receive sync_done within this time, assume we're first in the room. */
 const SYNC_TIMEOUT_MS = 2000;
 
+/** Throttle op log persistence to avoid blocking the main thread when many ops arrive (e.g. acks after fast typing). */
+const PERSIST_DEBOUNCE_MS = 400;
+
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
 
@@ -54,6 +57,7 @@ export class CollabNetwork {
   private reconnectAttempts = 0;
   private reconnectTimerId: ReturnType<typeof setTimeout> | null = null;
   private connectionStatus: ConnectionStatus = "offline";
+  private persistTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: NetworkConfig) {
     this.config = config;
@@ -82,7 +86,9 @@ export class CollabNetwork {
     this.shouldReconnect = true;
     this.setConnectionStatus("connecting");
     this.pendingOutbound = loadPendingOps(this.config.docId);
-    this.ws = new WebSocket(this.config.url);
+    const u = new URL(this.config.url);
+    u.searchParams.set("doc", this.config.docId);
+    this.ws = new WebSocket(u.toString());
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
       this.setConnectionStatus("syncing");
@@ -104,6 +110,10 @@ export class CollabNetwork {
     this.setConnectionStatus("offline");
     this.clearReconnectTimer();
     this.clearSyncTimeout();
+    if (this.persistTimeoutId !== null) {
+      clearTimeout(this.persistTimeoutId);
+      this.persistTimeoutId = null;
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -209,10 +219,22 @@ export class CollabNetwork {
 
   recordOp(op: WireOperation): void {
     this.log.append(op);
-    this.persistLog();
+    this.schedulePersistLog();
+  }
+
+  private schedulePersistLog(): void {
+    if (this.persistTimeoutId !== null) return;
+    this.persistTimeoutId = setTimeout(() => {
+      this.persistTimeoutId = null;
+      persistOps(this.config.docId, this.log.getAll());
+    }, PERSIST_DEBOUNCE_MS);
   }
 
   private persistLog(): void {
+    if (this.persistTimeoutId !== null) {
+      clearTimeout(this.persistTimeoutId);
+      this.persistTimeoutId = null;
+    }
     persistOps(this.config.docId, this.log.getAll());
   }
 
@@ -232,7 +254,7 @@ export class CollabNetwork {
           this.syncState.pushToBuffer(msg);
         } else if (this.replay) {
           this.replay.applyOne(msg.op, false);
-          this.persistLog();
+          this.schedulePersistLog();
         }
         break;
       case "sync_done":
@@ -271,7 +293,7 @@ export class CollabNetwork {
         } else if (this.syncState.isLive() && this.replay && isOperation(msg)) {
           const isFromSelf = msg.siteId === this.config.siteId;
           this.replay.applyOne(msg, isFromSelf);
-          this.persistLog();
+          this.schedulePersistLog();
         }
         break;
     }

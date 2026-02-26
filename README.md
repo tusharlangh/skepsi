@@ -48,6 +48,35 @@ npm run dev
 
 Open the URL Vite prints (usually http://localhost:5173). Open a second tab or window to the same URL to see two clients editing the same doc. Set `VITE_WS_URL` if your server is not on localhost:8080.
 
+## Scaling: multiple WebSocket servers
+
+You can run multiple backend instances behind a load balancer. Clients include the document id in the WebSocket URL (`ws://host/ws?doc=<docId>`), so the load balancer can route by document and send all peers for the same document to the same backend.
+
+- **Routing**: The in-repo proxy uses **rendezvous (highest random weight) hashing** on the `doc` query parameter so that the same document always maps to the same backend, and adding or removing a backend only moves a subset of documents. Reconnects use the same `doc` in the URL, so they land on the same server.
+- **In-repo proxy** (`backend/cmd/proxy`): Reads backend URLs from `WS_BACKENDS` (comma-separated), checks backend health via `GET /health` every 8s, and routes only to healthy backends. Requires a non-empty `doc` query parameter (1–256 chars, letters, numbers, hyphens, underscores). On backend connect failure it retries once with another healthy backend for the same doc. The proxy shuts down gracefully (SIGINT/SIGTERM: stop accepting new connections, then exit).
+- **Backends**: Expose `GET /health` (200 = process up). Room state is **in-memory only**; no Redis or shared store. If a backend process dies, all documents on that backend lose room state; clients must reconnect and will be routed (possibly to another backend) and resync via CRDT.
+
+**Run multiple backends + proxy locally:**
+
+```bash
+cd backend
+
+# Terminal 1 – backend 1
+PORT=8081 go run ./cmd/server
+
+# Terminal 2 – backend 2
+PORT=8082 go run ./cmd/server
+
+# Terminal 3 – proxy (clients connect here)
+WS_BACKENDS=http://localhost:8081,http://localhost:8082 go run ./cmd/proxy
+```
+
+The proxy listens on port 8080 by default. Point the app at `ws://localhost:8080/ws` (e.g. `VITE_WS_URL=ws://localhost:8080/ws`). Same doc always goes to the same backend; different docs are spread across backends. One-liner from the backend directory: `./scripts/run-multi.sh` (starts two backends and the proxy; Ctrl+C to stop).
+
+**High availability**: Run multiple proxy instances behind an external load balancer (e.g. cloud LB, Nginx, HAProxy). Proxies are stateless; any instance can serve any request. Doc stickiness is enforced per-request inside each proxy. If a backend goes down, only the documents on that backend are affected; clients reconnect and may land on another backend.
+
+**Other options**: Nginx with `hash $arg_doc consistent;` on an upstream, or HAProxy stick-table keyed by the `doc` query parameter.
+
 ## How to run the tests
 
 Backend unit tests and CRDT convergence tests:
@@ -68,7 +97,7 @@ We use a fixed random seed so the chaos is deterministic and the tests are repro
 
 ## Performance
 
-Metrics are exposed at `GET /metrics` (Prometheus text format; append `?format=json` for JSON). Counters: `ops_processed_total`, `connections_total`, `backpressure_drops_total`. Gauges: `active_connections`, `active_rooms`, `active_peers`.
+Metrics are exposed at `GET /metrics` (Prometheus text format; append `?format=json` for JSON). Counters: `ops_processed_total`, `connections_total`, `backpressure_drops_total`, `send_skips_total`. Gauges: `active_connections`, `active_rooms`, `active_peers`.
 
 Metrics only update when traffic hits the running server. The load test uses an in-process test server by default, so it does not affect `localhost:8080`. To populate metrics on a running server: start the server, then either run the app and edit, or run the load test against it:
 
@@ -104,7 +133,16 @@ go test ./crdt/sim/ -bench=BenchmarkConvergence -benchtime=3s
 
 **Chaos scenarios** (reorder, duplicate, late join, offline editing) are covered in `go test ./crdt/sim/ -v`.
 
-**Buffer sizes**: Hub incoming 1024; connection send 256; room commands 64. Backpressure drops occur when send channels are full; drops are logged and counted in `backpressure_drops_total`.
+**Buffer sizes**: Hub incoming 8192; connection send 2048; manager commands 2048; room commands 1024. Under overload the server prefers **dropping a connection** (so the client can reconnect and full-resync) over dropping individual messages (which would desync the CRDT). Send timeouts (hub→room or room manager command channel full for 5–10s) result in the affected connection being closed and logged as `overload_drop_conn`. Clients are also dropped after 5 consecutive send failures to a peer (buffer full). Send skips are counted in `send_skips_total`; backpressure timeouts in `backpressure_drops_total`.
+
+**400-connection test** (validates scale for large lectures):
+
+```bash
+cd backend
+go test ./load/ -run Test400ConcurrentConnections -v
+```
+
+Skipped in short mode (`go test -short`). May require higher `ulimit` for 400 sockets on some systems.
 
 ## Tech stack
 

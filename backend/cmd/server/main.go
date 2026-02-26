@@ -10,6 +10,7 @@ import (
 	"skepsi/backend/internal/logger"
 	"skepsi/backend/internal/metrics"
 	"skepsi/backend/internal/room"
+	"skepsi/backend/internal/validate"
 	"skepsi/backend/internal/ws"
 
 	"github.com/gorilla/websocket"
@@ -33,6 +34,14 @@ func main() {
 
 	go hub.Run(ctx)
 
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
 	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		rooms, peers := roomManager.Stats()
 		metrics.SetActiveRooms(rooms)
@@ -41,6 +50,14 @@ func main() {
 	})
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		doc := r.URL.Query().Get("doc")
+		if doc != "" {
+			if err := validate.DocID(doc); err != nil {
+				http.Error(w, "invalid doc query parameter: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+			logger.Log.Info("ws_connect", "doc", doc)
+		}
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			logger.Log.Warn("upgrade_failed", "error", err)

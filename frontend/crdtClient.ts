@@ -116,29 +116,73 @@ export class CrdtClient {
   }
 
   deleteAtPosition(position: Position): void {
+    this.deleteRange([position]);
+  }
+
+  /**
+   * Delete a range of positions in one batch. Applies all ops then calls onStateChange once,
+   * avoiding O(N²) getVisibleState and N re-renders for large deletes (e.g. select-all delete).
+   */
+  deleteRange(positions: Position[]): void {
+    if (positions.length === 0) return;
     const visible = this.state.getVisibleState();
     const elements = visible.getElements();
-    let deletedValue = "";
+    const positionToValue = new Map<string, string>();
     for (const el of elements) {
-      if (!el.deleted && el.position.length === position.length && el.position.every((v, j) => v === position[j])) {
-        deletedValue = el.value;
-        break;
-      }
+      if (!el.deleted)
+        positionToValue.set(JSON.stringify(el.position), el.value);
     }
-    const opId = { site: this.config.siteId, counter: this.opCounter++ };
-    const op: WireOperation = {
-      type: "delete",
-      docId: this.config.docId,
-      siteId: this.config.siteId,
-      opId,
-      payload: { position: position.slice() } as DeletePayload,
-      timestamp: Date.now(),
-    };
-    this.state.applyToConfirmed(op);
-    this.state.recordToHistory(op, true, deletedValue);
-    this.state.pushPending(op);
-    this.network.recordOp(op);
-    this.network.sendOp(op);
+    for (const position of positions) {
+      const deletedValue = positionToValue.get(JSON.stringify(position)) ?? "";
+      const opId = { site: this.config.siteId, counter: this.opCounter++ };
+      const op: WireOperation = {
+        type: "delete",
+        docId: this.config.docId,
+        siteId: this.config.siteId,
+        opId,
+        payload: { position: position.slice() } as DeletePayload,
+        timestamp: Date.now(),
+      };
+      this.state.applyToConfirmed(op);
+      this.state.recordToHistory(op, true, deletedValue);
+      this.state.pushPending(op);
+      this.network.recordOp(op);
+      this.network.sendOp(op);
+    }
+    this.config.onStateChange?.();
+  }
+
+  /**
+   * Insert a string at an index in one batch. Applies all ops then calls onStateChange once,
+   * avoiding O(N²) work and N re-renders for large pastes.
+   */
+  insertRange(startIndex: number, text: string): void {
+    if (text.length === 0) return;
+    const visible = this.state.getVisibleState();
+    const positions = visible.getPositions();
+    const runningPositions = positions.slice();
+    const rightBound: Position = [65535];
+    for (let i = 0; i < text.length; i++) {
+      const left = startIndex + i <= 0 ? [0] : runningPositions[startIndex + i - 1];
+      const right = startIndex + i >= runningPositions.length ? rightBound : runningPositions[startIndex + i];
+      const bias = this.config.siteBias + this.opCounter;
+      const position = generateBetween(left, right, bias);
+      const opId = { site: this.config.siteId, counter: this.opCounter++ };
+      const op: WireOperation = {
+        type: "insert",
+        docId: this.config.docId,
+        siteId: this.config.siteId,
+        opId,
+        payload: { position: position.slice(), value: text[i] } as InsertPayload,
+        timestamp: Date.now(),
+      };
+      this.state.applyToConfirmed(op);
+      this.state.recordToHistory(op, true);
+      this.state.pushPending(op);
+      this.network.recordOp(op);
+      this.network.sendOp(op);
+      runningPositions.splice(startIndex + i, 0, position);
+    }
     this.config.onStateChange?.();
   }
 
@@ -254,7 +298,7 @@ export class CrdtClient {
     if (isFromSelf) {
       this.state.removePendingByOpId(op.opId.site, op.opId.counter);
       this.state.applyToConfirmed(op);
-      this.config.onStateChange?.();
+      // Skip onStateChange on self-ack: visible text is unchanged, avoids N re-renders when N acks arrive in a burst (fast typing).
       return;
     }
     this.state.applyToConfirmed(op);

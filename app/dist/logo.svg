@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+  <g fill="#F34B06" transform="translate(50, 50)">
+    <!-- Central connecting hub -->
+    <circle cx="0" cy="0" r="7.5" />
+    
+    <!-- 8 Alternating Organic Petals (4 thin, 4 fat/round) -->
+    <!-- 1. Top - Thin, tall, slight tilt -->
+    <ellipse rx="3.5" ry="26" transform="rotate(-6) translate(0, -20.5)" />
+    
+    <!-- 2. Top-Right - Fat, thick, slightly shorter -->
+    <ellipse rx="9" ry="22" transform="rotate(38) translate(0, -18.5)" />
+    
+    <!-- 3. Right - Thin, horizontal -->
+    <ellipse rx="4" ry="28" transform="rotate(82) translate(0, -22)" />
+    
+    <!-- 4. Bottom-Right - Fat -->
+    <ellipse rx="9.5" ry="21" transform="rotate(128) translate(0, -17)" />
+    
+    <!-- 5. Bottom - Thin, tilted slightly right -->
+    <ellipse rx="3.5" ry="25" transform="rotate(172) translate(0, -20)" />
+    
+    <!-- 6. Bottom-Left - Fat, wide -->
+    <ellipse rx="10" ry="22" transform="rotate(218) translate(0, -18)" />
+    
+    <!-- 7. Left - Thin -->
+    <ellipse rx="4.5" ry="29" transform="rotate(264) translate(0, -22.5)" />
+    
+    <!-- 8. Top-Left - Fat -->
+    <ellipse rx="8.5" ry="21.5" transform="rotate(308) translate(0, -18)" />
+  </g>
+</svg>

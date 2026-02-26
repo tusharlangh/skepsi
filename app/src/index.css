@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
 
 * {
   box-sizing: border-box;
@@ -12,10 +12,10 @@ body,
 }
 
 body {
-  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 16px;
-  color: #1a1a1a;
-  background: #fef9f5;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 15px;
+  color: #1f2937;
+  background: #fafafa;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -35,53 +35,58 @@ body {
   overflow: hidden;
 }
 
+/* Toolbar - minimal, Claude-like */
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 8px 16px;
-  min-height: 44px;
+  gap: 12px;
+  padding: 12px 24px;
+  min-height: 52px;
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  background: rgba(255, 255, 255, 0.6);
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
 }
 
 .toolbar .connection-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
-  font-size: 11px;
+  padding: 6px 12px;
+  font-size: 12px;
   font-weight: 500;
-  color: #8b7355;
-  background: rgba(245, 230, 220, 0.8);
-  border-radius: 999px;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 8px;
   margin-right: auto;
   transition: all 0.2s ease;
 }
 
 .toolbar .connection-pill .dot {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: currentColor;
   flex-shrink: 0;
 }
 
 .toolbar .connection-pill.offline .dot {
-  background: #c4a77d;
+  background: #f59e0b;
   animation: pulse 2s ease-in-out infinite;
 }
 
 .toolbar .connection-pill.connecting .dot,
 .toolbar .connection-pill.syncing .dot {
-  background: #e8a54b;
+  background: #3b82f6;
   animation: pulse 1.2s ease-in-out infinite;
 }
 
 .toolbar .connection-pill.online {
   opacity: 0;
   pointer-events: none;
+}
+
+.toolbar .connection-pill.online .dot {
+  background: #22c55e;
 }
 
 @keyframes pulse {
@@ -94,15 +99,24 @@ body {
   }
 }
 
+.toolbar .word-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
 .toolbar .actions {
   display: flex;
-  gap: 2px;
+  gap: 4px;
 }
 
 .toolbar button {
   padding: 8px 10px;
   font-size: 15px;
-  color: #5c4a3a;
+  color: #6b7280;
   background: transparent;
   border: none;
   border-radius: 8px;
@@ -111,43 +125,47 @@ body {
 }
 
 .toolbar button:hover:not(:disabled) {
-  background: rgba(139, 115, 85, 0.08);
-  color: #3d3228;
+  background: #f3f4f6;
+  color: #374151;
 }
 
 .toolbar button:disabled {
-  color: #c4b5a5;
+  color: #d1d5db;
   cursor: default;
 }
 
+/* Editor area - spacious, focused */
 .editor-area {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 24px 48px 48px;
+  padding: 48px 24px 64px;
   overflow: auto;
   min-height: 0;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .editor-area textarea {
   flex: 1;
   width: 100%;
-  min-height: 300px;
+  min-height: 400px;
   padding: 0;
   margin: 0;
   border: none;
   outline: none;
   resize: none;
   font: inherit;
-  font-size: 18px;
-  line-height: 1.75;
-  color: #2d2520;
+  font-size: 17px;
+  line-height: 1.7;
+  color: #111827;
   background: transparent;
   letter-spacing: -0.01em;
 }
 
 .editor-area textarea::placeholder {
-  color: #b8a898;
+  color: #9ca3af;
 }
 
 .editor-area textarea:focus {
@@ -155,72 +173,85 @@ body {
 }
 
 .editor-area textarea::selection {
-  background: rgba(232, 165, 75, 0.25);
+  background: rgba(59, 130, 246, 0.2);
 }
 
+/* Landing - Claude.ai inspired centered layout */
 .landing {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 48px 24px;
+  background: #fafafa;
 }
 
-.landing-card {
-  max-width: 400px;
+.landing-inner {
   width: 100%;
-  padding: 40px 32px;
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 16px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 4px 24px rgba(45, 37, 32, 0.06);
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.landing-logo {
+  display: block;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 24px;
 }
 
 .landing-card h1 {
   margin: 0 0 8px;
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 600;
-  color: #2d2520;
+  color: #111827;
+  letter-spacing: -0.02em;
 }
 
 .landing-subtitle {
-  margin: 0 0 28px;
-  font-size: 15px;
-  color: #8b7355;
+  margin: 0 0 40px;
+  font-size: 16px;
+  color: #6b7280;
+  font-weight: 400;
 }
 
 .landing-actions {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: 100%;
+  max-width: 480px;
 }
 
 .landing-btn {
-  padding: 12px 20px;
+  padding: 14px 24px;
   font-size: 15px;
   font-weight: 500;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.15s ease;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: rgba(255, 255, 255, 0.9);
-  color: #2d2520;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
 }
 
 .landing-btn:hover:not(:disabled) {
-  background: rgba(245, 230, 220, 0.6);
-  border-color: rgba(139, 115, 85, 0.2);
+  background: #f9fafb;
+  border-color: #d1d5db;
 }
 
 .landing-btn.primary {
-  background: #2d2520;
-  color: #fef9f5;
-  border-color: #2d2520;
+  background: #111827;
+  color: #ffffff;
+  border-color: #111827;
 }
 
 .landing-btn.primary:hover {
-  background: #3d3228;
-  border-color: #3d3228;
+  background: #1f2937;
+  border-color: #1f2937;
 }
 
 .landing-btn:disabled {
@@ -231,23 +262,51 @@ body {
 .landing-join {
   display: flex;
   gap: 8px;
+  width: 100%;
 }
 
 .landing-input {
   flex: 1;
-  padding: 12px 16px;
+  padding: 14px 18px;
   font-size: 15px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #2d2520;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #111827;
+  transition: border-color 0.15s ease;
 }
 
 .landing-input::placeholder {
-  color: #b8a898;
+  color: #9ca3af;
 }
 
 .landing-input:focus {
   outline: none;
-  border-color: rgba(139, 115, 85, 0.3);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.landing-input-error {
+  border-color: #ef4444;
+}
+
+.landing-input-error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.landing-error {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #ef4444;
+}
+
+.toolbar .toolbar-btn-copy {
+  min-width: 52px;
+}
+
+.toolbar-copied {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
 }
