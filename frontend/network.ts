@@ -10,10 +10,8 @@ import { ReplayEngine } from "./replay-engine";
 import { SyncState } from "./sync-state";
 import { persistOps, loadPendingOps, persistPendingOps } from "./persistence";
 
-/** If we don't receive sync_done within this time, assume we're first in the room. */
 const SYNC_TIMEOUT_MS = 2000;
 
-/** Throttle op log persistence to avoid blocking the main thread when many ops arrive (e.g. acks after fast typing). */
 const PERSIST_DEBOUNCE_MS = 400;
 
 const RECONNECT_BASE_MS = 1000;

@@ -5,17 +5,11 @@ import (
 	"sync"
 )
 
-// Selector routes a doc ID to one of the configured backend base URLs using
-// rendezvous (highest random weight) hashing: same docId maps to the same
-// backend, and adding/removing a backend only moves docs that had that
-// backend as winner.
 type Selector struct {
 	mu       sync.RWMutex
 	backends []string
 }
 
-// NewSelector returns a selector that routes by rendezvous hashing over the
-// given backends.
 func NewSelector(backends []string) *Selector {
 	if len(backends) == 0 {
 		backends = nil
@@ -23,7 +17,6 @@ func NewSelector(backends []string) *Selector {
 	return &Selector{backends: backends}
 }
 
-// SetBackends updates the list of backend base URLs (e.g. http://localhost:8081).
 func (s *Selector) SetBackends(backends []string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -35,8 +28,6 @@ func (s *Selector) SetBackends(backends []string) {
 	copy(s.backends, backends)
 }
 
-// Backend returns the base URL for the given docId using rendezvous hashing.
-// Empty string if no backends.
 func (s *Selector) Backend(docId string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

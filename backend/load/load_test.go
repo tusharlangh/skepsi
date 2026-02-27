@@ -194,7 +194,6 @@ func Test400ConcurrentConnections(t *testing.T) {
 		t.Fatalf("expected %d connections, got %d", numClients, len(conns))
 	}
 
-	// Wait for room to process all joins (async)
 	var peers uint64
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
 		_, peers = roomManager.Stats()
@@ -232,8 +231,6 @@ func Test400ConcurrentConnections(t *testing.T) {
 	}
 }
 
-// Test400ConcurrentConnectionsAllTyping stress-tests 400 clients in the same doc
-// with all 400 sending ops concurrently (everyone typing at once).
 func Test400ConcurrentConnectionsAllTyping(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping 400-connection stress test in short mode")
@@ -302,7 +299,6 @@ func Test400ConcurrentConnectionsAllTyping(t *testing.T) {
 		t.Fatalf("expected %d connections, got %d", numClients, len(conns))
 	}
 
-	// Wait for room to process all joins
 	var peers uint64
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
 		_, peers = roomManager.Stats()
@@ -315,7 +311,6 @@ func Test400ConcurrentConnectionsAllTyping(t *testing.T) {
 		t.Fatalf("room stats: expected %d peers, got %d (after waiting)", numClients, peers)
 	}
 
-	// All 400 clients send ops concurrently (everyone typing)
 	var sendWg sync.WaitGroup
 	var sendErrCount atomic.Int32
 	for i := 0; i < numClients; i++ {
@@ -343,7 +338,6 @@ func Test400ConcurrentConnectionsAllTyping(t *testing.T) {
 		t.Errorf("send errors: %d clients had at least one send failure", n)
 	}
 
-	// Allow time for server to process and broadcast (400 * 10 = 4000 ops, each to 399 peers)
 	time.Sleep(3 * time.Second)
 
 	_, peersAfter := roomManager.Stats()

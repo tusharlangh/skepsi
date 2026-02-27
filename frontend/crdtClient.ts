@@ -119,10 +119,6 @@ export class CrdtClient {
     this.deleteRange([position]);
   }
 
-  /**
-   * Delete a range of positions in one batch. Applies all ops then calls onStateChange once,
-   * avoiding O(N²) getVisibleState and N re-renders for large deletes (e.g. select-all delete).
-   */
   deleteRange(positions: Position[]): void {
     if (positions.length === 0) return;
     const visible = this.state.getVisibleState();
@@ -152,10 +148,6 @@ export class CrdtClient {
     this.config.onStateChange?.();
   }
 
-  /**
-   * Insert a string at an index in one batch. Applies all ops then calls onStateChange once,
-   * avoiding O(N²) work and N re-renders for large pastes.
-   */
   insertRange(startIndex: number, text: string): void {
     if (text.length === 0) return;
     const visible = this.state.getVisibleState();
@@ -186,7 +178,6 @@ export class CrdtClient {
     this.config.onStateChange?.();
   }
 
-  /** Undo: find last non-undone op by this site, broadcast its inverse, mark undone. */
   undo(): boolean {
     const entry = this.state.getLastUndoableEntry(this.config.siteId);
     if (!entry) return false;
@@ -203,7 +194,6 @@ export class CrdtClient {
     return true;
   }
 
-  /** Redo: reapply the last undone op (same effect, new opId). */
   redo(): boolean {
     const opId = this.state.popRedo();
     if (!opId) return false;
@@ -298,7 +288,6 @@ export class CrdtClient {
     if (isFromSelf) {
       this.state.removePendingByOpId(op.opId.site, op.opId.counter);
       this.state.applyToConfirmed(op);
-      // Skip onStateChange on self-ack: visible text is unchanged, avoids N re-renders when N acks arrive in a burst (fast typing).
       return;
     }
     this.state.applyToConfirmed(op);

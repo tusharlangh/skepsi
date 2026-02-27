@@ -32,8 +32,6 @@ type OpId struct {
 	Counter int    `json:"counter"`
 }
 
-// Operation is a single edit (insert/delete) or undo inverse. Undo is expressed
-// as a normal insert/delete; InverseOpId links it to the op being undone.
 type Operation struct {
 	Type        string          `json:"type"`
 	DocId       string          `json:"docId"`

@@ -75,7 +75,16 @@ The proxy listens on port 8080 by default. Point the app at `ws://localhost:8080
 
 **High availability**: Run multiple proxy instances behind an external load balancer (e.g. cloud LB, Nginx, HAProxy). Proxies are stateless; any instance can serve any request. Doc stickiness is enforced per-request inside each proxy. If a backend goes down, only the documents on that backend are affected; clients reconnect and may land on another backend.
 
-**Other options**: Nginx with `hash $arg_doc consistent;` on an upstream, or HAProxy stick-table keyed by the `doc` query parameter.
+**Other options**: HAProxy stick-table keyed by the `doc` query parameter.
+
+**Using nginx**: A sample config is in `backend/nginx/skepsi.conf`. It uses `hash $arg_doc consistent;` so the same doc always hits the same backend.
+
+1. Start two (or more) backends on different ports, e.g. `PORT=8081 go run ./cmd/server` and `PORT=8082 go run ./cmd/server`.
+2. Edit the upstream servers in `backend/nginx/skepsi.conf` if needed (ports or hostnames).
+3. Start nginx with that config: `nginx -c /path/to/backend/nginx/skepsi.conf` (or include the upstream and server blocks from the file into your main nginx.conf and reload).
+4. Nginx listens on port 8080; point the app at `ws://host:8080/ws?doc=<docId>` (e.g. `VITE_WS_URL=ws://localhost:8080/ws`).
+
+Doc stickiness is by the `doc` query parameter; no Redis or shared state. If a backend dies, only docs on that backend are affected. The in-repo Go proxy also does health checks and retries; plain nginx does not, so remove failed backends from the upstream or use nginx plus health checks if your version supports it. You can run `./scripts/run-multi-nginx.sh` from the backend directory to start the backends and print the nginx command.
 
 ## How to run the tests
 

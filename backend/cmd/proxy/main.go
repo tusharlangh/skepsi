@@ -49,7 +49,6 @@ func main() {
 	healthyBackends := make([]string, len(allBackends))
 	copy(healthyBackends, allBackends)
 
-	// Health check loop: periodically GET each backend /health, update healthy set and selector.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go runHealthChecks(ctx, allBackends, sel, &healthyMu, &healthyBackends)
@@ -84,7 +83,6 @@ func main() {
 
 		backendConn, _, err := websocket.DefaultDialer.Dial(backendWSURL, nil)
 		if err != nil {
-			// Retry once with another healthy backend for this doc (failover when primary is dead).
 			healthyMu.RLock()
 			others := make([]string, 0, len(healthyBackends))
 			for _, b := range healthyBackends {
@@ -114,7 +112,6 @@ func main() {
 		}
 		defer backendConn.Close()
 
-		// Copy client -> backend
 		go func() {
 			for {
 				mt, msg, err := clientConn.ReadMessage()
@@ -126,7 +123,6 @@ func main() {
 				}
 			}
 		}()
-		// Copy backend -> client
 		for {
 			mt, msg, err := backendConn.ReadMessage()
 			if err != nil {
@@ -159,8 +155,6 @@ func main() {
 	slog.Info("proxy stopped")
 }
 
-// runHealthChecks GETs each backend's /health every healthCheckInterval, updates
-// healthyBackends and the selector so only live backends are used for routing.
 func runHealthChecks(ctx context.Context, allBackends []string, sel *router.Selector, healthyMu *sync.RWMutex, healthyBackends *[]string) {
 	client := &http.Client{Timeout: healthCheckTimeout}
 	ticker := time.NewTicker(healthCheckInterval)
@@ -194,7 +188,6 @@ func runHealthChecks(ctx context.Context, allBackends []string, sel *router.Sele
 	}
 }
 
-// baseToWS converts http://host or https://host to ws://host or wss://host.
 func baseToWS(base string) string {
 	u, err := url.Parse(base)
 	if err != nil {

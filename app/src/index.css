@@ -35,7 +35,6 @@ body {
   overflow: hidden;
 }
 
-/* Toolbar - minimal, Claude-like */
 .toolbar {
   display: flex;
   align-items: center;
@@ -134,7 +133,6 @@ body {
   cursor: default;
 }
 
-/* Editor area - spacious, focused */
 .editor-area {
   flex: 1;
   display: flex;
@@ -176,7 +174,6 @@ body {
   background: rgba(59, 130, 246, 0.2);
 }
 
-/* Landing - Claude.ai inspired centered layout */
 .landing {
   flex: 1;
   display: flex;

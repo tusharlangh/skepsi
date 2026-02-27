@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-/**
- * Generates PNG icons from logo.svg for PWA manifest.
- * Run: node scripts/generate-icons.js
- */
 import sharp from "sharp";
 import { readFileSync, writeFileSync } from "fs";
 import { fileURLToPath } from "url";

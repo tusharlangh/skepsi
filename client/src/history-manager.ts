@@ -9,11 +9,6 @@ export type UndoableEntry = {
   value: string;
 };
 
-/**
- * HistoryManager maintains undo/redo state for selective multiplayer undo.
- * Operation history is in OperationLog (append-only); this adds undoneOps,
- * siteLocalHistory, redoStack, and deletedValue for undo of deletes.
- */
 export class HistoryManager {
   private log: OperationLog;
   private deletedValues = new Map<string, string>();
@@ -25,10 +20,6 @@ export class HistoryManager {
     this.log = log;
   }
 
-  /**
-   * Record an applied op. Call after applying to CRDT.
-   * For this site's delete, pass the character deleted so undo can reinsert it.
-   */
   record(op: Operation, isFromSelf: boolean, deletedValue?: string): void {
     if (deletedValue !== undefined) this.deletedValues.set(opIdKey(op.opId), deletedValue);
 

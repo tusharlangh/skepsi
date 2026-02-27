@@ -13,8 +13,6 @@ var (
 
 const MaxDocIDLen = 256
 
-// DocID checks that doc is non-empty, at most MaxDocIDLen runes, and contains
-// only letters, numbers, hyphens and underscores. Use for proxy and server.
 func DocID(doc string) error {
 	if doc == "" {
 		return ErrDocIDEmpty

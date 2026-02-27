@@ -57,10 +57,8 @@ func runChaosConvergence(b *testing.B, numClients, numOps int) {
 	}
 	b.StopTimer()
 
-	// Report ops delivered per second (each iteration delivers numOps to numClients replicas)
 	totalOpsDelivered := int64(b.N) * int64(numOps) * int64(numClients)
 	b.ReportMetric(float64(totalOpsDelivered)/b.Elapsed().Seconds(), "ops_delivered/sec")
-	// Convergence time: average ms per full convergence run (setup + DeliverAll)
 	b.ReportMetric(float64(b.Elapsed().Milliseconds())/float64(b.N), "convergence_ms")
 }
 

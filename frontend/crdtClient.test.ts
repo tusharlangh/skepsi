@@ -1,8 +1,3 @@
-/**
- * Cursor stability test: run with node (or ts-node) to verify.
- * User A types "AB", cursor at 2. User B inserts "X" before A.
- * Expected: visible text "AXB", cursor index 3 (cursor stays after "B").
- */
 import { CrdtClient } from "./crdtClient";
 import { generateBetween } from "./crdt-engine";
 import type { WireOperation } from "./types";
@@ -54,11 +49,6 @@ function runCursorStabilityTest(): void {
   console.log("Cursor stability test passed.");
 }
 
-/**
- * Selective undo test (deterministic, no server).
- * A inserts A, B inserts B, A inserts C, A presses undo.
- * Final text must be AB on the client that has all ops.
- */
 function runSelectiveUndoTest(): void {
   const siteA = "site-a";
   const siteB = "site-b";
@@ -99,8 +89,4 @@ function runSelectiveUndoTest(): void {
   console.log("Selective undo test passed.");
 }
 
-// Deterministic test (no server). Run this first.
 runSelectiveUndoTest();
-
-// Cursor test requires ws://localhost:8080/ws
-// runCursorStabilityTest();

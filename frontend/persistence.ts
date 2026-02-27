@@ -31,7 +31,6 @@ export function persistOps(docId: string, ops: readonly WireOperation[]): void {
   try {
     localStorage.setItem(storageKey(docId), JSON.stringify(ops));
   } catch {
-    // localStorage may be full or unavailable
   }
 }
 
@@ -64,6 +63,5 @@ export function persistPendingOps(docId: string, ops: readonly WireOperation[]):
   try {
     localStorage.setItem(pendingStorageKey(docId), JSON.stringify(ops));
   } catch {
-    // localStorage may be full or unavailable
   }
 }

@@ -1,7 +1,3 @@
-/**
- * Injects precache URLs from dist/index.html into dist/sw.js.
- * Run after vite build to ensure offline cold-start works.
- */
 import { readFileSync, writeFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -14,7 +10,6 @@ const swPath = join(distDir, "sw.js");
 const html = readFileSync(indexPath, "utf-8");
 const precache = ["/", "/index.html", "/manifest.json"];
 
-// Extract script src and stylesheet href
 const scriptMatch = html.match(/<script[^>]+src="([^"]+)"/);
 if (scriptMatch) precache.push(scriptMatch[1]);
 const linkMatches = html.matchAll(/<link[^>]+href="([^"]+\.css)"/g);
