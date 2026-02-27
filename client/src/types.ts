@@ -7,7 +7,6 @@ export type Operation = {
   opId: OpId;
   payload: unknown;
   timestamp: number;
-  /** Set when this op is the inverse of another (undo); links to the op being undone. */
   inverseOpId?: OpId;
 };
 

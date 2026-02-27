@@ -3,7 +3,6 @@
 set -e
 cd "$(dirname "$0")/.."
 BACKENDS="8081 8082"
-PROXY_PORT="${PORT:-8080}"
 
 pids=()
 cleanup() {
@@ -20,10 +19,10 @@ for port in $BACKENDS; do
   echo "backend on :$port (PID $pid)"
 done
 
-sleep 1
-WS_BACKENDS="http://localhost:8081,http://localhost:8082" PORT="$PROXY_PORT" go run ./cmd/proxy &
-pid=$!
-pids+=($pid)
-echo "proxy on :$PROXY_PORT (PID $pid)"
-echo "Connect clients to ws://localhost:$PROXY_PORT/ws"
+NGINX_CONF="$(pwd)/nginx/skepsi.conf"
+echo ""
+echo "Backends running. Start nginx (e.g.):"
+echo "  nginx -c $NGINX_CONF"
+echo "Then connect clients to ws://localhost:8080/ws"
+echo ""
 wait

@@ -2,10 +2,6 @@ import type { WireOperation, InsertPayload } from "./types";
 import { generateBetween } from "./crdt-engine";
 import { persistOps, persistPendingOps } from "./persistence";
 
-/**
- * Creates a personal snapshot of the given text as a new document.
- * Persists insert ops to localStorage and clears pending for the new doc.
- */
 export function createSnapshotForNewDoc(
   text: string,
   newDocId: string,

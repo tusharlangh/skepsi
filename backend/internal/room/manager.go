@@ -220,8 +220,6 @@ func safeSend(ch chan []byte, msg []byte) (ok bool) {
 	}
 }
 
-// sendWithFailureTracking attempts to send; on failure, increments peer's sendFailures
-// and returns shouldDrop if the peer has exceeded the failure threshold.
 func sendWithFailureTracking(p *peer, raw []byte) (shouldDrop bool) {
 	if safeSend(p.ch, raw) {
 		p.sendFailures = 0

@@ -21,7 +21,6 @@ export function setDocIdInUrl(docId: string): void {
   }
 }
 
-/** Clears the doc from the URL and returns to the landing page. */
 export function clearDocIdFromUrl(): void {
   window.location.hash = "";
 }
@@ -30,7 +29,6 @@ export function parseDocIdFromUrl(url: string): string | null {
   const trimmed = url.trim();
   if (!trimmed) return null;
   try {
-    // Handle relative URLs (e.g. "#/doc/abc123" or "/#/doc/abc123")
     const parsed = trimmed.startsWith("http")
       ? new URL(trimmed)
       : new URL(trimmed, window.location.origin);
@@ -43,9 +41,6 @@ export function parseDocIdFromUrl(url: string): string | null {
   }
 }
 
-/**
- * Returns the doc ID from the URL, or null if none. Uses hash routing: /#/doc/abc123
- */
 export function useDocIdOrNull(): string | null {
   const [docId, setDocId] = useState<string | null>(() => getDocIdFromHash());
 
@@ -58,9 +53,6 @@ export function useDocIdOrNull(): string | null {
   return docId;
 }
 
-/**
- * Returns the current doc ID. Only use when docId is known to exist (e.g. inside Editor).
- */
 export function useDocId(): string {
   const docId = useDocIdOrNull();
   if (!docId) throw new Error("useDocId called but no doc in URL");

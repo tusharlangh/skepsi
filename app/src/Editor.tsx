@@ -32,8 +32,8 @@ export default function Editor({ docId }: EditorProps) {
     useState<ConnectionStatus>("offline");
 
   useEffect(() => {
-    // Per-tab siteId so ops from another tab are not treated as self-acks (which skip UI refresh).
-    const siteId = getOrCreateSiteId() + "-" + Math.random().toString(36).slice(2, 8);
+    const siteId =
+      getOrCreateSiteId() + "-" + Math.random().toString(36).slice(2, 8);
     const siteBias = Math.floor(Math.random() * 100);
     let rafId: number | null = null;
     const client = new CrdtClient({

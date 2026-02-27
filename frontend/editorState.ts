@@ -40,13 +40,9 @@ export class EditorState {
   private pendingOps: WireOperation[] = [];
   private cursorPosition: Position | null = null;
 
-  /** Append-only operation history (never remove; tombstones in CRDT). */
   private operationLog: LogEntry[] = [];
-  /** OpIds that have been undone (inverse was sent). */
   private undoneOps = new Set<string>();
-  /** This site's ops in order, with data needed to generate inverse. */
   private siteLocalHistory: UndoableEntry[] = [];
-  /** Stack of opIds to redo (replay original op). */
   private redoStack: { site: string; counter: number }[] = [];
 
   constructor(initial?: CrdtEngine) {
@@ -85,10 +81,6 @@ export class EditorState {
     this.pendingOps = this.pendingOps.filter((o) => !(o.opId.site === site && o.opId.counter === counter));
   }
 
-  /**
-   * Record an applied op in history. Call after applyToConfirmed.
-   * For our own delete, pass the character that was deleted so undo can reinsert it.
-   */
   recordToHistory(op: WireOperation, isFromSelf: boolean, deletedValue?: string): void {
     this.operationLog.push({ op: { ...op, payload: copyPayload(op.payload) }, deletedValue });
 
@@ -122,7 +114,6 @@ export class EditorState {
     }
   }
 
-  /** Last operation from this site that is not undone, with data to build inverse. */
   getLastUndoableEntry(siteId: string): UndoableEntry | null {
     for (let i = this.siteLocalHistory.length - 1; i >= 0; i--) {
       const e = this.siteLocalHistory[i];
@@ -131,7 +122,6 @@ export class EditorState {
     return null;
   }
 
-  /** Mark an op as undone (inverse sent). Pushes to redo so redo is available immediately. */
   markUndone(opId: { site: string; counter: number }): void {
     this.undoneOps.add(opIdKey(opId));
     this.redoStack.push({ site: opId.site, counter: opId.counter });
